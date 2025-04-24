@@ -25,20 +25,20 @@ func (b *BaseRelation) Children() []Component {
 }
 
 type MouseHandler interface {
-	HandleMouse()
+	HandleMouse(MouseEvent)
 }
 
 type BaseMouseHandler struct {
-	mouseEventHandler func()
+	mouseEventHandler func(MouseEvent)
 }
 
-func (b *BaseMouseHandler) HandleMouse() {
+func (b *BaseMouseHandler) HandleMouse(event MouseEvent) {
 	if b.mouseEventHandler != nil {
-		b.mouseEventHandler()
+		b.mouseEventHandler(event)
 	}
 }
 
-func (b *BaseMouseHandler) OnMouseEvent(handler func()) {
+func (b *BaseMouseHandler) OnMouseEvent(handler func(MouseEvent)) {
 	b.mouseEventHandler = handler
 }
 
