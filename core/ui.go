@@ -39,17 +39,12 @@ func NewUI(root Component) UI {
 	return ui
 }
 
-func (u *UI) GetCamera() *rl.Camera2D {
-	return &u.camera
-}
-
 func (u *UI) RenderLoop() {
 	u.addToQuadtree(u.root)
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
 		rl.BeginMode2D(u.camera)
 		rl.ClearBackground(rl.Beige)
-		//mouseEventConsumed := false
 
 		mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), u.camera)
 		cursor := &BaseComponent{
@@ -68,7 +63,7 @@ func (u *UI) RenderLoop() {
 		for _, objUnderCursor := range objs {
 			if cursor.Intersects(objUnderCursor.BoundingRect()) {
 				foundObj = objUnderCursor
-				//mouseEventConsumed = true
+
 			}
 		}
 		if foundObj != nil {
@@ -112,6 +107,10 @@ func (u *UI) RenderLoop() {
 		rl.EndMode2D()
 		rl.EndDrawing()
 	}
+}
+
+func (u *UI) GetCamera() *rl.Camera2D {
+	return &u.camera
 }
 
 func (u *UI) addToQuadtree(node Component) {

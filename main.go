@@ -13,8 +13,7 @@ type Button struct {
 }
 
 func (b *Button) Render() {
-	rl.DrawRectangle(int32(b.X), int32(b.Y), int32(b.Width), int32(b.Height), rl.Red)
-
+	rl.DrawRectangle(int32(b.X), int32(b.Y), int32(b.Width), int32(b.Height), b.GetColor())
 }
 
 func NewButton(bounds bounds.Bounds) *Button {
@@ -22,6 +21,10 @@ func NewButton(bounds bounds.Bounds) *Button {
 		BaseComponent: BaseComponent{
 			BaseBounds: BaseBounds{
 				Bounds: bounds,
+			},
+			BaseRender: BaseRender{
+				Color:   rl.Black,
+				Opacity: 255,
 			},
 		},
 	}
@@ -49,6 +52,7 @@ func main() {
 	}
 	panel.OnMouseEvent(func(event MouseEvent) {
 		if event.IsMouseButtonDown() {
+			// Move around canvas by dragging mouse
 			camera := ui.GetCamera()
 			delta := rl.GetMouseDelta()
 			delta = rl.Vector2Scale(delta, -1.0/camera.Zoom)
@@ -63,6 +67,8 @@ func main() {
 		Width:  200,
 		Height: 200,
 	})
+	button.SetColor(rl.Red)
+	button.SetOpacity(0.4)
 	button.OnMouseEvent(func(event MouseEvent) {
 		if event.IsMouseButtonPressed() {
 			println("Wow it works")
@@ -80,6 +86,8 @@ func main() {
 			println("Wow it works2")
 		}
 	})
+	button2.SetColor(rl.Blue)
+	button2.SetOpacity(0.2)
 
 	panel.AddChild(button)
 	panel.AddChild(button2)
