@@ -10,10 +10,13 @@ type Relational interface {
 	AddChild(Component)
 	removeChild(Component)
 	Children() []Component
+	Parent() Component
+	SetParent(Component)
 }
 
 type BaseRelation struct {
 	children []Component
+	parent   Component
 }
 
 func (b *BaseRelation) AddChild(child Component) {
@@ -28,21 +31,30 @@ func (b *BaseRelation) Children() []Component {
 	return b.children
 }
 
+func (b *BaseRelation) Parent() Component {
+	return b.parent
+}
+
+func (b *BaseRelation) SetParent(parent Component) {
+	b.parent = parent
+}
+
 type MouseHandler interface {
-	HandleMouse(MouseEvent)
+	HandleMouse(MouseEvent) EventHandleState
 }
 
 type BaseMouseHandler struct {
-	mouseEventHandler func(MouseEvent)
+	mouseEventHandler func(MouseEvent) EventHandleState
 }
 
-func (b *BaseMouseHandler) HandleMouse(event MouseEvent) {
+func (b *BaseMouseHandler) HandleMouse(event MouseEvent) EventHandleState {
 	if b.mouseEventHandler != nil {
-		b.mouseEventHandler(event)
+		return b.mouseEventHandler(event)
 	}
+	return Propogate
 }
 
-func (b *BaseMouseHandler) OnMouseEvent(handler func(MouseEvent)) {
+func (b *BaseMouseHandler) OnMouseEvent(handler func(MouseEvent) EventHandleState) {
 	b.mouseEventHandler = handler
 }
 
@@ -64,6 +76,15 @@ func (b *BaseComponent) Render() {
 	for _, child := range b.Children() {
 		child.Render()
 	}
+}
+
+func (b *BaseComponent) SetParent(parent Component) {
+	b.BaseRelation.SetParent(parent)
+}
+
+func (b *BaseComponent) AddChild(child Component) {
+	b.BaseRelation.AddChild(child)
+	child.SetParent(b)
 }
 
 type Renderable interface {

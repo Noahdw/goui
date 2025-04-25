@@ -66,18 +66,19 @@ func (u *UI) RenderLoop() {
 
 			}
 		}
+		// Handle event propogation for mouse
 		if foundObj != nil {
 			if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
 				event := NewMouseEvent(Pressed)
-				foundObj.HandleMouse(event)
+				u.bubbleMouseEvent(event, foundObj)
 			}
 			if rl.IsMouseButtonDown(rl.MouseButtonLeft) {
 				event := NewMouseEvent(Down)
-				foundObj.HandleMouse(event)
+				u.bubbleMouseEvent(event, foundObj)
 			}
 			if rl.IsMouseButtonReleased(rl.MouseButtonLeft) {
 				event := NewMouseEvent(Released)
-				foundObj.HandleMouse(event)
+				u.bubbleMouseEvent(event, foundObj)
 			}
 		}
 
@@ -117,5 +118,14 @@ func (u *UI) addToQuadtree(node Component) {
 	u.quadtree.Insert(node)
 	for _, child := range node.Children() {
 		u.addToQuadtree(child)
+	}
+}
+
+func (u *UI) bubbleMouseEvent(event MouseEvent, node Component) {
+	handleState := node.HandleMouse(event)
+	if handleState == Propogate {
+		if parent := node.Parent(); parent != nil {
+			u.bubbleMouseEvent(event, parent)
+		}
 	}
 }

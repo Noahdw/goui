@@ -50,14 +50,16 @@ func main() {
 		BaseMouseHandler: BaseMouseHandler{},
 		BaseRelation:     BaseRelation{},
 	}
-	panel.OnMouseEvent(func(event MouseEvent) {
+	panel.OnMouseEvent(func(event MouseEvent) EventHandleState {
 		if event.IsMouseButtonDown() {
 			// Move around canvas by dragging mouse
 			camera := ui.GetCamera()
 			delta := rl.GetMouseDelta()
 			delta = rl.Vector2Scale(delta, -1.0/camera.Zoom)
 			camera.Target = rl.Vector2Add(camera.Target, delta)
+			return Handled
 		}
+		return Propogate
 	})
 	root.AddChild(panel)
 
@@ -69,10 +71,11 @@ func main() {
 	})
 	button.SetColor(rl.Red)
 	button.SetOpacity(0.4)
-	button.OnMouseEvent(func(event MouseEvent) {
+	button.OnMouseEvent(func(event MouseEvent) EventHandleState {
 		if event.IsMouseButtonPressed() {
 			println("Wow it works")
 		}
+		return Handled
 	})
 
 	button2 := NewButton(Bounds{
@@ -81,10 +84,12 @@ func main() {
 		Width:  100,
 		Height: 200,
 	})
-	button2.OnMouseEvent(func(event MouseEvent) {
+	button2.OnMouseEvent(func(event MouseEvent) EventHandleState {
 		if event.IsMouseButtonPressed() {
 			println("Wow it works2")
+			return Propogate
 		}
+		return Propogate
 	})
 	button2.SetColor(rl.Blue)
 	button2.SetOpacity(0.2)

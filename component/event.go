@@ -8,6 +8,13 @@ const (
 	Down
 )
 
+type EventHandleState int
+
+const (
+	Handled EventHandleState = iota
+	Propogate
+)
+
 type MouseEvent struct {
 	state mouseEventState
 }
