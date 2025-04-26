@@ -20,9 +20,7 @@ func (b *Button) Render() {
 func NewButton(bounds bounds.Bounds) *Button {
 	return &Button{
 		BaseNode: BaseNode{
-			BaseBounds: BaseBounds{
-				Bounds: bounds,
-			},
+			Bounds: bounds,
 			BaseRender: BaseRender{
 				Color:   rl.Black,
 				Opacity: 255,
@@ -40,13 +38,11 @@ func main() {
 	ui := core.NewUI(root)
 
 	panel := &BaseNode{
-		BaseBounds: BaseBounds{
-			Bounds: Bounds{
-				X:      0,
-				Y:      0,
-				Width:  10000,
-				Height: 10000,
-			},
+		Bounds: Bounds{
+			X:      0,
+			Y:      0,
+			Width:  10000,
+			Height: 10000,
 		},
 	}
 	panel.OnMouseEvent(func(event MouseEvent) EventHandleState {

@@ -50,10 +50,11 @@ type Node interface {
 }
 
 type BaseNode struct {
-	BaseBounds
 	BaseMouseHandler
 	BaseRelation
 	BaseRender
+	Bounds
+	dirtyPosition bool
 }
 
 func (b *BaseNode) Render() {
@@ -69,6 +70,32 @@ func (b *BaseNode) SetParent(parent Node) {
 func (b *BaseNode) AddChild(child Node) {
 	b.BaseRelation.AddChild(child)
 	child.SetParent(b)
+}
+
+func (b *BaseNode) BoundingRect() Bounds {
+	return b.Bounds
+}
+
+func (b *BaseNode) SetPositionY(y float64) {
+	if b.Y == y {
+		return
+	}
+	b.Y = y
+	b.dirtyPosition = true
+}
+
+func (b *BaseNode) SetPositionX(x float64) {
+	if b.X == x {
+		return
+	}
+	b.X = x
+	b.dirtyPosition = true
+}
+
+func (b *BaseNode) CheckAndClearDirtyPosition() bool {
+	isDirty := b.dirtyPosition
+	b.dirtyPosition = false
+	return isDirty
 }
 
 func (b *BaseNode) ID() string {
@@ -116,37 +143,6 @@ type Boundable interface {
 	SetPositionY(float64)
 	SetPositionX(x float64)
 	CheckAndClearDirtyPosition() bool
-}
-
-type BaseBounds struct {
-	Bounds
-	dirtyPosition bool
-}
-
-func (b *BaseBounds) BoundingRect() Bounds {
-	return b.Bounds
-}
-
-func (b *BaseBounds) SetPositionY(y float64) {
-	if b.Y == y {
-		return
-	}
-	b.Y = y
-	b.dirtyPosition = true
-}
-
-func (b *BaseBounds) SetPositionX(x float64) {
-	if b.X == x {
-		return
-	}
-	b.X = x
-	b.dirtyPosition = true
-}
-
-func (b *BaseBounds) CheckAndClearDirtyPosition() bool {
-	isDirty := b.dirtyPosition
-	b.dirtyPosition = false
-	return isDirty
 }
 
 func MapRangeFloat32ToUint8(value, fromLow, fromHigh float32, toLow, toHigh uint8) uint8 {

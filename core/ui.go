@@ -50,13 +50,11 @@ func (u *UI) RenderLoop() {
 
 		mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), u.camera)
 		cursor := &BaseNode{
-			BaseBounds: BaseBounds{
-				Bounds: Bounds{
-					X:      float64(mouseWorldPos.X),
-					Y:      float64(mouseWorldPos.Y),
-					Width:  0,
-					Height: 0,
-				},
+			Bounds: Bounds{
+				X:      float64(mouseWorldPos.X),
+				Y:      float64(mouseWorldPos.Y),
+				Width:  0,
+				Height: 0,
 			},
 		}
 
