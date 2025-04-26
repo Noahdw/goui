@@ -1,4 +1,4 @@
-package component
+package node
 
 type mouseEventState int
 
@@ -14,6 +14,25 @@ const (
 	Handled EventHandleState = iota
 	Propogate
 )
+
+type MouseHandler interface {
+	HandleMouse(MouseEvent) EventHandleState
+}
+
+type BaseMouseHandler struct {
+	mouseEventHandler func(MouseEvent) EventHandleState
+}
+
+func (b *BaseMouseHandler) HandleMouse(event MouseEvent) EventHandleState {
+	if b.mouseEventHandler != nil {
+		return b.mouseEventHandler(event)
+	}
+	return Propogate
+}
+
+func (b *BaseMouseHandler) OnMouseEvent(handler func(MouseEvent) EventHandleState) {
+	b.mouseEventHandler = handler
+}
 
 type MouseEvent struct {
 	state mouseEventState

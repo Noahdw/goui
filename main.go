@@ -4,12 +4,13 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"github.com/noahdw/goui/bounds"
 	. "github.com/noahdw/goui/bounds"
-	. "github.com/noahdw/goui/component"
+	"github.com/noahdw/goui/component.go"
 	"github.com/noahdw/goui/core"
+	. "github.com/noahdw/goui/node"
 )
 
 type Button struct {
-	BaseComponent
+	BaseNode
 }
 
 func (b *Button) Render() {
@@ -18,7 +19,7 @@ func (b *Button) Render() {
 
 func NewButton(bounds bounds.Bounds) *Button {
 	return &Button{
-		BaseComponent: BaseComponent{
+		BaseNode: BaseNode{
 			BaseBounds: BaseBounds{
 				Bounds: bounds,
 			},
@@ -35,10 +36,10 @@ func main() {
 	rl.SetTargetFPS(120)
 	defer rl.CloseWindow()
 
-	root := &BaseComponent{}
+	root := &BaseNode{}
 	ui := core.NewUI(root)
 
-	panel := &BaseComponent{
+	panel := &BaseNode{
 		BaseBounds: BaseBounds{
 			Bounds: Bounds{
 				X:      0,
@@ -47,8 +48,6 @@ func main() {
 				Height: 10000,
 			},
 		},
-		BaseMouseHandler: BaseMouseHandler{},
-		BaseRelation:     BaseRelation{},
 	}
 	panel.OnMouseEvent(func(event MouseEvent) EventHandleState {
 		if event.IsMouseButtonDown() {
@@ -63,20 +62,10 @@ func main() {
 	})
 	root.AddChild(panel)
 
-	button := NewButton(Bounds{
-		X:      100,
-		Y:      100,
-		Width:  200,
-		Height: 200,
-	})
-	button.SetColor(rl.Red)
-	button.SetOpacity(0.4)
-	button.OnMouseEvent(func(event MouseEvent) EventHandleState {
-		if event.IsMouseButtonPressed() {
-			println("Wow it works")
-		}
-		return Handled
-	})
+	vBox := component.NewVerticalBoxLayout()
+	vBox.SetSpacing(5)
+	panel.AddChild(&vBox)
+	vBox.SetAlignment(component.AlignLeft)
 
 	button2 := NewButton(Bounds{
 		X:      400,
@@ -94,8 +83,25 @@ func main() {
 	button2.SetColor(rl.Blue)
 	button2.SetOpacity(0.2)
 
-	panel.AddChild(button)
-	panel.AddChild(button2)
+	vBox.AddChild(button2)
+
+	for i := range 10 {
+		button := NewButton(Bounds{
+			X:      100,
+			Y:      100,
+			Width:  200,
+			Height: 200,
+		})
+		button.SetColor(rl.Red)
+		button.SetOpacity(0.1 * float32(i))
+		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
+			if event.IsMouseButtonPressed() {
+				println("Wow it works")
+			}
+			return Handled
+		})
+		vBox.AddChild(button)
+	}
 
 	ui.RenderLoop()
 }

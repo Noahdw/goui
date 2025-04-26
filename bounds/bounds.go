@@ -20,9 +20,7 @@ func (b *Bounds) IsPoint() bool {
 }
 
 func (b *Bounds) BoundingRect() *Bounds {
-
 	return b
-
 }
 
 // Intersects - Checks if a Bounds object intersects with another Bounds

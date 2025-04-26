@@ -2,7 +2,7 @@ package quadtree
 
 import (
 	. "github.com/noahdw/goui/bounds"
-	"github.com/noahdw/goui/component"
+	"github.com/noahdw/goui/node"
 )
 
 // Adapted from https://github.com/JamesLMilner/quadtree-go
@@ -13,21 +13,14 @@ type Quadtree struct {
 	MaxObjects int // Maximum objects a node can hold before splitting into 4 subnodes
 	MaxLevels  int // Total max levels inside root Quadtree
 	Level      int // Depth level, required for subnodes
-	Objects    []component.Component
+	Objects    []node.Node
 	Nodes      []Quadtree
 	Total      int
 	counter    int
 }
 
-// type Drawable interface {
-// 	Draw()
-// 	BoundingRect() *Bounds
-// 	MouseEvent()
-// }
-
 // TotalNodes - Retrieve the total number of sub-Quadtrees in a Quadtree
 func (qt *Quadtree) TotalNodes() int {
-
 	total := 0
 
 	if len(qt.Nodes) > 0 {
@@ -38,12 +31,10 @@ func (qt *Quadtree) TotalNodes() int {
 	}
 
 	return total
-
 }
 
 // split - split the node into 4 subnodes
 func (qt *Quadtree) split() {
-
 	if len(qt.Nodes) == 4 {
 		return
 	}
@@ -65,7 +56,7 @@ func (qt *Quadtree) split() {
 		MaxObjects: qt.MaxObjects,
 		MaxLevels:  qt.MaxLevels,
 		Level:      nextLevel,
-		Objects:    make([]component.Component, 0),
+		Objects:    make([]node.Node, 0),
 		Nodes:      make([]Quadtree, 0, 4),
 	})
 
@@ -80,7 +71,7 @@ func (qt *Quadtree) split() {
 		MaxObjects: qt.MaxObjects,
 		MaxLevels:  qt.MaxLevels,
 		Level:      nextLevel,
-		Objects:    make([]component.Component, 0),
+		Objects:    make([]node.Node, 0),
 		Nodes:      make([]Quadtree, 0, 4),
 	})
 
@@ -95,7 +86,7 @@ func (qt *Quadtree) split() {
 		MaxObjects: qt.MaxObjects,
 		MaxLevels:  qt.MaxLevels,
 		Level:      nextLevel,
-		Objects:    make([]component.Component, 0),
+		Objects:    make([]node.Node, 0),
 		Nodes:      make([]Quadtree, 0, 4),
 	})
 
@@ -110,15 +101,14 @@ func (qt *Quadtree) split() {
 		MaxObjects: qt.MaxObjects,
 		MaxLevels:  qt.MaxLevels,
 		Level:      nextLevel,
-		Objects:    make([]component.Component, 0),
+		Objects:    make([]node.Node, 0),
 		Nodes:      make([]Quadtree, 0, 4),
 	})
 
 }
 
 // getIndex - Determine which quadrant the object belongs to (0-3)
-func (qt *Quadtree) getIndex(obj component.Component) int {
-
+func (qt *Quadtree) getIndex(obj node.Node) int {
 	index := -1 // index of the subnode (0-3), or -1 if pRect cannot completely fit within a subnode and is part of the parent node
 	pRect := obj.BoundingRect()
 	verticalMidpoint := qt.Bounds.X + (qt.Bounds.Width / 2)
@@ -156,8 +146,7 @@ func (qt *Quadtree) getIndex(obj component.Component) int {
 
 // Insert - Insert the object into the node. If the node exceeds the capacity,
 // it will split and add all objects to their corresponding subnodes.
-func (qt *Quadtree) Insert(pRect component.Component) {
-
+func (qt *Quadtree) Insert(pRect node.Node) {
 	qt.Total++
 
 	i := 0
@@ -165,7 +154,6 @@ func (qt *Quadtree) Insert(pRect component.Component) {
 
 	// If we have subnodes within the Quadtree
 	if len(qt.Nodes) > 0 == true {
-
 		index = qt.getIndex(pRect)
 
 		if index != -1 {
@@ -187,31 +175,23 @@ func (qt *Quadtree) Insert(pRect component.Component) {
 
 		// Add all objects to there corresponding subNodes
 		for i < len(qt.Objects) {
-
 			index = qt.getIndex(qt.Objects[i])
 
 			if index != -1 {
-
 				splice := qt.Objects[i]                                  // Get the object out of the slice
 				qt.Objects = append(qt.Objects[:i], qt.Objects[i+1:]...) // Remove the object from the slice
 
 				qt.Nodes[index].Insert(splice)
 
 			} else {
-
 				i++
-
 			}
-
 		}
-
 	}
-
 }
 
 // Retrieve - Return all objects that could collide with the given object
-func (qt *Quadtree) Retrieve(pRect component.Component) []component.Component {
-
+func (qt *Quadtree) Retrieve(pRect node.Node) []node.Node {
 	index := qt.getIndex(pRect)
 
 	// Array with all detected objects
@@ -219,30 +199,23 @@ func (qt *Quadtree) Retrieve(pRect component.Component) []component.Component {
 
 	//if we have subnodes ...
 	if len(qt.Nodes) > 0 {
-
 		//if pRect fits into a subnode ..
 		if index != -1 {
-
 			returnObjects = append(returnObjects, qt.Nodes[index].Retrieve(pRect)...)
-
 		} else {
-
 			//if pRect does not fit into a subnode, check it against all subnodes
 			for i := 0; i < len(qt.Nodes); i++ {
 				returnObjects = append(returnObjects, qt.Nodes[i].Retrieve(pRect)...)
 			}
-
 		}
 	}
-
 	return returnObjects
-
 }
 
 // RetrievePoints - Return all points that collide
-func (qt *Quadtree) RetrievePoints(find component.Component) []component.Component {
+func (qt *Quadtree) RetrievePoints(find node.Node) []node.Node {
 	findRect := find.BoundingRect()
-	var foundPoints []component.Component
+	var foundPoints []node.Node
 	potentials := qt.Retrieve(find)
 	for o := 0; o < len(potentials); o++ {
 		potentialObj := potentials[o].BoundingRect()
@@ -258,9 +231,8 @@ func (qt *Quadtree) RetrievePoints(find component.Component) []component.Compone
 }
 
 // RetrieveIntersections - Bring back all the bounds in a Quadtree that intersect with a provided bounds
-func (qt *Quadtree) RetrieveIntersections(find component.Component) []component.Component {
-
-	var foundIntersections []component.Component
+func (qt *Quadtree) RetrieveIntersections(find node.Node) []node.Node {
+	var foundIntersections []node.Node
 	potentials := qt.Retrieve(find)
 	for o := 0; o < len(potentials); o++ {
 		potentialObj := potentials[o].BoundingRect()
@@ -268,15 +240,12 @@ func (qt *Quadtree) RetrieveIntersections(find component.Component) []component.
 			foundIntersections = append(foundIntersections, potentials[o])
 		}
 	}
-
 	return foundIntersections
-
 }
 
 // Clear - Clear the Quadtree
 func (qt *Quadtree) Clear() {
-
-	qt.Objects = []component.Component{}
+	qt.Objects = []node.Node{}
 
 	if len(qt.Nodes)-1 > 0 {
 		for i := 0; i < len(qt.Nodes); i++ {
@@ -286,5 +255,55 @@ func (qt *Quadtree) Clear() {
 
 	qt.Nodes = []Quadtree{}
 	qt.Total = 0
+}
 
+func (qt *Quadtree) Remove(id string) bool {
+	removed := false
+
+	// Check if the object is in this node's Objects slice
+	for i := 0; i < len(qt.Objects); i++ {
+		// Compare objects by ID
+		if qt.Objects[i].ID() == id {
+			// Remove the object from the slice
+			qt.Objects = append(qt.Objects[:i], qt.Objects[i+1:]...)
+			qt.Total--
+			removed = true
+			break
+		}
+	}
+
+	// If not found in this node and we have subnodes, check all of them
+	if !removed && len(qt.Nodes) > 0 {
+		for i := 0; i < len(qt.Nodes); i++ {
+			if qt.Nodes[i].Remove(id) {
+				qt.Total--
+				removed = true
+				break
+			}
+		}
+	}
+
+	// Consider collapsing subnodes if they're now empty
+	if removed && len(qt.Nodes) > 0 {
+		qt.collapseIfEmpty()
+	}
+
+	return removed
+}
+
+// collapseIfEmpty - Helper function to collapse subnodes if they're all empty
+func (qt *Quadtree) collapseIfEmpty() {
+	// Check if all subnodes are empty
+	allEmpty := true
+	for i := 0; i < len(qt.Nodes); i++ {
+		if len(qt.Nodes[i].Objects) > 0 || len(qt.Nodes[i].Nodes) > 0 {
+			allEmpty = false
+			break
+		}
+	}
+
+	// If all subnodes are empty, collapse them
+	if allEmpty {
+		qt.Nodes = []Quadtree{}
+	}
 }

@@ -6,17 +6,17 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	. "github.com/noahdw/goui/bounds"
-	. "github.com/noahdw/goui/component"
+	. "github.com/noahdw/goui/node"
 	. "github.com/noahdw/goui/quadtree"
 )
 
 type UI struct {
 	camera   rl.Camera2D
-	root     Component
+	root     Node
 	quadtree Quadtree
 }
 
-func NewUI(root Component) UI {
+func NewUI(root Node) UI {
 	ui := UI{
 		camera: rl.Camera2D{
 			Zoom: 1,
@@ -32,7 +32,7 @@ func NewUI(root Component) UI {
 			MaxObjects: 4,
 			MaxLevels:  8,
 			Level:      0,
-			Objects:    make([]Component, 0),
+			Objects:    make([]Node, 0),
 			Nodes:      make([]Quadtree, 0),
 		},
 	}
@@ -46,8 +46,10 @@ func (u *UI) RenderLoop() {
 		rl.BeginMode2D(u.camera)
 		rl.ClearBackground(rl.Beige)
 
+		u.updateNodesWithDirtyPositions(u.root)
+
 		mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), u.camera)
-		cursor := &BaseComponent{
+		cursor := &BaseNode{
 			BaseBounds: BaseBounds{
 				Bounds: Bounds{
 					X:      float64(mouseWorldPos.X),
@@ -58,7 +60,7 @@ func (u *UI) RenderLoop() {
 			},
 		}
 
-		var foundObj Component
+		var foundObj Node
 		objs := u.quadtree.Retrieve(cursor)
 		for _, objUnderCursor := range objs {
 			if cursor.Intersects(objUnderCursor.BoundingRect()) {
@@ -114,18 +116,31 @@ func (u *UI) GetCamera() *rl.Camera2D {
 	return &u.camera
 }
 
-func (u *UI) addToQuadtree(node Component) {
+func (u *UI) addToQuadtree(node Node) {
 	u.quadtree.Insert(node)
 	for _, child := range node.Children() {
 		u.addToQuadtree(child)
 	}
 }
 
-func (u *UI) bubbleMouseEvent(event MouseEvent, node Component) {
+func (u *UI) bubbleMouseEvent(event MouseEvent, node Node) {
 	handleState := node.HandleMouse(event)
 	if handleState == Propogate {
 		if parent := node.Parent(); parent != nil {
 			u.bubbleMouseEvent(event, parent)
 		}
+	}
+}
+
+func (u *UI) updateNodesWithDirtyPositions(node Node) {
+	if node.CheckAndClearDirtyPosition() {
+		// Position is dirty, update in quadtree
+		u.quadtree.Remove(node.ID())
+		u.quadtree.Insert(node)
+	}
+
+	// Check children recursively
+	for _, child := range node.Children() {
+		u.updateNodesWithDirtyPositions(child)
 	}
 }

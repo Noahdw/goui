@@ -1,90 +1,81 @@
-package component
+package node
 
 import (
 	"image/color"
 
+	"github.com/google/uuid"
 	. "github.com/noahdw/goui/bounds"
 )
 
 type Relational interface {
-	AddChild(Component)
-	removeChild(Component)
-	Children() []Component
-	Parent() Component
-	SetParent(Component)
+	AddChild(Node)
+	removeChild(Node)
+	Children() []Node
+	Parent() Node
+	SetParent(Node)
+	ID() string
 }
 
 type BaseRelation struct {
-	children []Component
-	parent   Component
+	children []Node
+	parent   Node
+	id       string
 }
 
-func (b *BaseRelation) AddChild(child Component) {
+func (b *BaseRelation) AddChild(child Node) {
 	b.children = append(b.children, child)
 }
 
-func (b *BaseRelation) removeChild(child Component) {
+func (b *BaseRelation) removeChild(child Node) {
 
 }
 
-func (b *BaseRelation) Children() []Component {
+func (b *BaseRelation) Children() []Node {
 	return b.children
 }
 
-func (b *BaseRelation) Parent() Component {
+func (b *BaseRelation) Parent() Node {
 	return b.parent
 }
 
-func (b *BaseRelation) SetParent(parent Component) {
+func (b *BaseRelation) SetParent(parent Node) {
 	b.parent = parent
 }
 
-type MouseHandler interface {
-	HandleMouse(MouseEvent) EventHandleState
-}
-
-type BaseMouseHandler struct {
-	mouseEventHandler func(MouseEvent) EventHandleState
-}
-
-func (b *BaseMouseHandler) HandleMouse(event MouseEvent) EventHandleState {
-	if b.mouseEventHandler != nil {
-		return b.mouseEventHandler(event)
-	}
-	return Propogate
-}
-
-func (b *BaseMouseHandler) OnMouseEvent(handler func(MouseEvent) EventHandleState) {
-	b.mouseEventHandler = handler
-}
-
-type Component interface {
+type Node interface {
 	Renderable
 	MouseHandler
 	Boundable
 	Relational
 }
 
-type BaseComponent struct {
+type BaseNode struct {
 	BaseBounds
 	BaseMouseHandler
 	BaseRelation
 	BaseRender
 }
 
-func (b *BaseComponent) Render() {
+func (b *BaseNode) Render() {
 	for _, child := range b.Children() {
 		child.Render()
 	}
 }
 
-func (b *BaseComponent) SetParent(parent Component) {
+func (b *BaseNode) SetParent(parent Node) {
 	b.BaseRelation.SetParent(parent)
 }
 
-func (b *BaseComponent) AddChild(child Component) {
+func (b *BaseNode) AddChild(child Node) {
 	b.BaseRelation.AddChild(child)
 	child.SetParent(b)
+}
+
+func (b *BaseNode) ID() string {
+	if b.id == "" {
+		b.id = uuid.New().String()
+	}
+	return b.id
 }
 
 type Renderable interface {
@@ -98,6 +89,7 @@ type Renderable interface {
 type BaseRender struct {
 	Color   color.RGBA
 	Opacity uint8
+	dirty   bool
 }
 
 func (b *BaseRender) SetColor(color color.RGBA) {
@@ -121,14 +113,40 @@ func (b *BaseRender) GetOpacity() uint8 {
 
 type Boundable interface {
 	BoundingRect() Bounds
+	SetPositionY(float64)
+	SetPositionX(x float64)
+	CheckAndClearDirtyPosition() bool
 }
 
 type BaseBounds struct {
 	Bounds
+	dirtyPosition bool
 }
 
 func (b *BaseBounds) BoundingRect() Bounds {
 	return b.Bounds
+}
+
+func (b *BaseBounds) SetPositionY(y float64) {
+	if b.Y == y {
+		return
+	}
+	b.Y = y
+	b.dirtyPosition = true
+}
+
+func (b *BaseBounds) SetPositionX(x float64) {
+	if b.X == x {
+		return
+	}
+	b.X = x
+	b.dirtyPosition = true
+}
+
+func (b *BaseBounds) CheckAndClearDirtyPosition() bool {
+	isDirty := b.dirtyPosition
+	b.dirtyPosition = false
+	return isDirty
 }
 
 func MapRangeFloat32ToUint8(value, fromLow, fromHigh float32, toLow, toHigh uint8) uint8 {
