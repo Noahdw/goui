@@ -58,10 +58,10 @@ func main() {
 	})
 	root.AddChild(panel)
 
-	vBox := component.NewVerticalBoxLayout()
+	vBox := component.NewHorizontalBoxLayout()
 	vBox.SetSpacing(5)
 	panel.AddChild(&vBox)
-	vBox.SetAlignment(component.AlignLeft)
+	vBox.SetAlignment(component.AlignBottom)
 
 	button2 := NewButton(Bounds{
 		X:      400,
@@ -86,7 +86,7 @@ func main() {
 			X:      100,
 			Y:      100,
 			Width:  200,
-			Height: 200,
+			Height: float64(i * 20),
 		})
 		button.SetColor(rl.Red)
 		button.SetOpacity(0.1 * float32(i))
