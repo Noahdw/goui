@@ -58,14 +58,12 @@ func main() {
 	})
 	root.AddChild(panel)
 
-	vBox := component.NewHorizontalBoxLayout()
-	vBox.SetSpacing(5)
-	panel.AddChild(&vBox)
-	vBox.SetAlignment(component.AlignBottom)
+	hBox := component.NewHorizontalBoxLayout()
+	hBox.SetSpacing(5)
+	panel.AddChild(&hBox)
+	hBox.SetAlignment(component.AlignTop)
 
 	button2 := NewButton(Bounds{
-		X:      400,
-		Y:      400,
 		Width:  100,
 		Height: 200,
 	})
@@ -79,25 +77,53 @@ func main() {
 	button2.SetColor(rl.Blue)
 	button2.SetOpacity(0.2)
 
-	vBox.AddChild(button2)
+	hBox.AddChild(button2)
 
 	for i := range 10 {
 		button := NewButton(Bounds{
-			X:      100,
-			Y:      100,
 			Width:  200,
-			Height: float64(i * 20),
+			Height: float64((i + 1) * 20),
 		})
 		button.SetColor(rl.Red)
-		button.SetOpacity(0.1 * float32(i))
+		button.SetOpacity(0.1 * float32((i + 1)))
 		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
 			if event.IsMouseButtonPressed() {
 				println("Wow it works")
+			}
+			if event.IsMouseEntered() {
+				button.SetColor(rl.White)
+			}
+			if event.IsMouseExited() {
+				button.SetColor(rl.Red)
+			}
+			return Handled
+		})
+		hBox.AddChild(button)
+	}
+	hBox.AddChild(vLayoutTest())
+
+	ui.RenderLoop()
+}
+
+func vLayoutTest() *component.VerticalBoxLayout {
+	vBox := component.NewVerticalBoxLayout()
+	vBox.SetSpacing(15)
+	vBox.SetAlignment(component.AlignLeft)
+
+	for i := range 10 {
+		button := NewButton(Bounds{
+			Width:  float64((i + 1) * 20),
+			Height: float64((i + 1) * 20),
+		})
+		button.SetColor(rl.Green)
+		button.SetOpacity(0.1 * float32((i + 1)))
+		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
+			if event.IsMouseButtonPressed() {
+				println("Wow it works4")
 			}
 			return Handled
 		})
 		vBox.AddChild(button)
 	}
-
-	ui.RenderLoop()
+	return &vBox
 }

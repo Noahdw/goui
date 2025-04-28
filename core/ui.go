@@ -41,6 +41,7 @@ func NewUI(root Node) UI {
 
 func (u *UI) RenderLoop() {
 	u.addToQuadtree(u.root)
+	var lastFoundObj Node
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
 		rl.BeginMode2D(u.camera)
@@ -80,6 +81,19 @@ func (u *UI) RenderLoop() {
 				event := NewMouseEvent(Released)
 				u.bubbleMouseEvent(event, foundObj)
 			}
+			if foundObj != lastFoundObj {
+				event := NewMouseEvent(Entered)
+				u.bubbleMouseEvent(event, foundObj)
+				if lastFoundObj != nil {
+					event := NewMouseEvent(Exited)
+					u.bubbleMouseEvent(event, lastFoundObj)
+				}
+				lastFoundObj = foundObj
+			}
+		} else if lastFoundObj != nil {
+			event := NewMouseEvent(Exited)
+			u.bubbleMouseEvent(event, lastFoundObj)
+			lastFoundObj = nil
 		}
 
 		// Handle mouse wheel

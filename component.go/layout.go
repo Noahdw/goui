@@ -1,6 +1,9 @@
 package component
 
-import "github.com/noahdw/goui/node"
+import (
+	"github.com/noahdw/goui/bounds"
+	"github.com/noahdw/goui/node"
+)
 
 type VLayoutAlignment int
 
@@ -35,16 +38,17 @@ func (v *VerticalBoxLayout) Render() {
 	currentVerticalPosition := v.BoundingRect().Y
 	for _, child := range v.Children() {
 		child.SetPositionY(currentVerticalPosition)
+
 		if v.alignment == AlignLeft {
 			child.SetPositionX(v.BoundingRect().X)
 		} else if v.alignment == AlignRight {
 			child.SetPositionX(v.BoundingRect().X + v.BoundingRect().Width) // wrong
 		}
-		childRect := child.BoundingRect()
-		currentVerticalPosition += childRect.Height + v.spacing
 
-		child.Render()
+		currentVerticalPosition += child.BoundingRect().Height + v.spacing
 	}
+	v.BaseNode.Render()
+
 }
 
 func (v *VerticalBoxLayout) SetSpacing(spacing float64) {
@@ -53,6 +57,19 @@ func (v *VerticalBoxLayout) SetSpacing(spacing float64) {
 
 func (v *VerticalBoxLayout) SetAlignment(alignment VLayoutAlignment) {
 	v.alignment = alignment
+}
+
+func (v *VerticalBoxLayout) BoundingRect() bounds.Bounds {
+	totalHeight := 0.
+	totalWidth := 0.
+	bounds := v.Bounds
+	for _, child := range v.Children() {
+		totalHeight += child.BoundingRect().Height + float64(len(v.Children())-1)*v.spacing
+		totalWidth += child.BoundingRect().Width
+	}
+	v.Bounds.Height = totalHeight
+	v.Bounds.Width = totalWidth
+	return bounds
 }
 
 type HorizontalBoxLayout struct {
@@ -71,9 +88,9 @@ func NewHorizontalBoxLayout() HorizontalBoxLayout {
 func (h *HorizontalBoxLayout) Render() {
 	maxChildHeight := 0.0
 	if h.alignment == AlignBottom {
-		maxChildHeight = h.maxChildHeight()
+		maxChildHeight = h.MaxChildHeight()
 	}
-	currentHorizPosition := h.BoundingRect().Y
+	currentHorizPosition := h.Y
 	for _, child := range h.Children() {
 		child.SetPositionX(currentHorizPosition)
 		if h.alignment == AlignTop {
@@ -83,9 +100,8 @@ func (h *HorizontalBoxLayout) Render() {
 		}
 		childRect := child.BoundingRect()
 		currentHorizPosition += childRect.Width + h.spacing
-
-		child.Render()
 	}
+	h.BaseNode.Render()
 }
 
 func (h *HorizontalBoxLayout) SetSpacing(spacing float64) {
@@ -96,10 +112,15 @@ func (h *HorizontalBoxLayout) SetAlignment(alignment HLayoutAlignment) {
 	h.alignment = alignment
 }
 
-func (h *HorizontalBoxLayout) maxChildHeight() float64 {
-	maxHeight := 0.0
+func (h *HorizontalBoxLayout) BoundingRect() bounds.Bounds {
+	totalHeight := 0.
+	totalWidth := 0.
+	bounds := h.Bounds
 	for _, child := range h.Children() {
-		maxHeight = max(maxHeight, child.BoundingRect().Height)
+		totalHeight += child.BoundingRect().Height
+		totalWidth += child.BoundingRect().Width
 	}
-	return maxHeight
+	h.Bounds.Height = totalHeight
+	h.Bounds.Width = totalWidth + float64(len(h.Children())-1)*h.spacing
+	return bounds
 }

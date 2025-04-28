@@ -6,6 +6,8 @@ const (
 	Pressed mouseEventState = iota
 	Released
 	Down
+	Entered
+	Exited
 )
 
 type EventHandleState int
@@ -48,6 +50,14 @@ func (m *MouseEvent) IsMouseButtonPressed() bool {
 
 func (m *MouseEvent) IsMouseButtonReleased() bool {
 	return m.state == Released
+}
+
+func (m *MouseEvent) IsMouseEntered() bool {
+	return m.state == Entered
+}
+
+func (m *MouseEvent) IsMouseExited() bool {
+	return m.state == Exited
 }
 
 func NewMouseEvent(state mouseEventState) MouseEvent {

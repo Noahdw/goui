@@ -98,6 +98,14 @@ func (b *BaseNode) CheckAndClearDirtyPosition() bool {
 	return isDirty
 }
 
+func (b *BaseNode) MaxChildHeight() float64 {
+	maxHeight := 0.0
+	for _, child := range b.Children() {
+		maxHeight = max(maxHeight, child.BoundingRect().Height)
+	}
+	return maxHeight
+}
+
 func (b *BaseNode) ID() string {
 	if b.id == "" {
 		b.id = uuid.New().String()
