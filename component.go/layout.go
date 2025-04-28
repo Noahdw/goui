@@ -64,11 +64,11 @@ func (v *VerticalBoxLayout) BoundingRect() bounds.Bounds {
 	totalWidth := 0.
 	bounds := v.Bounds
 	for _, child := range v.Children() {
-		totalHeight += child.BoundingRect().Height + float64(len(v.Children())-1)*v.spacing
+		totalHeight += child.BoundingRect().Height
 		totalWidth += child.BoundingRect().Width
 	}
-	v.Bounds.Height = totalHeight
-	v.Bounds.Width = totalWidth
+	v.Bounds.Height = totalHeight + float64(len(v.Children())-1)*v.spacing
+	v.Bounds.Width = v.MaxChildWidth()
 	return bounds
 }
 
@@ -115,12 +115,13 @@ func (h *HorizontalBoxLayout) SetAlignment(alignment HLayoutAlignment) {
 func (h *HorizontalBoxLayout) BoundingRect() bounds.Bounds {
 	totalHeight := 0.
 	totalWidth := 0.
-	bounds := h.Bounds
+
 	for _, child := range h.Children() {
 		totalHeight += child.BoundingRect().Height
 		totalWidth += child.BoundingRect().Width
 	}
-	h.Bounds.Height = totalHeight
+
+	h.Bounds.Height = h.MaxChildHeight()
 	h.Bounds.Width = totalWidth + float64(len(h.Children())-1)*h.spacing
-	return bounds
+	return h.Bounds
 }

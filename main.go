@@ -15,6 +15,7 @@ type Button struct {
 
 func (b *Button) Render() {
 	rl.DrawRectangle(int32(b.X), int32(b.Y), int32(b.Width), int32(b.Height), b.GetColor())
+	b.BaseNode.Render()
 }
 
 func NewButton(bounds bounds.Bounds) *Button {
@@ -60,6 +61,7 @@ func main() {
 
 	hBox := component.NewHorizontalBoxLayout()
 	hBox.SetSpacing(5)
+	hBox.DrawBounds = true
 	panel.AddChild(&hBox)
 	hBox.SetAlignment(component.AlignTop)
 
@@ -79,25 +81,8 @@ func main() {
 
 	hBox.AddChild(button2)
 
-	for i := range 10 {
-		button := NewButton(Bounds{
-			Width:  200,
-			Height: float64((i + 1) * 20),
-		})
-		button.SetColor(rl.Red)
-		button.SetOpacity(0.1 * float32((i + 1)))
-		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
-			if event.IsMouseButtonPressed() {
-				println("Wow it works")
-			}
-			if event.IsMouseEntered() {
-				button.SetColor(rl.White)
-			}
-			if event.IsMouseExited() {
-				button.SetColor(rl.Red)
-			}
-			return Handled
-		})
+	for range 10 {
+		button := vLayoutTest()
 		hBox.AddChild(button)
 	}
 	hBox.AddChild(vLayoutTest())
@@ -120,6 +105,14 @@ func vLayoutTest() *component.VerticalBoxLayout {
 		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
 			if event.IsMouseButtonPressed() {
 				println("Wow it works4")
+			} else if event.IsMouseButtonDown() {
+				button.SetColor(rl.Red)
+			} else if event.IsMouseButtonReleased() {
+				button.SetColor(rl.DarkGreen)
+			} else if event.IsMouseEntered() {
+				button.SetColor(rl.DarkGreen)
+			} else if event.IsMouseExited() {
+				button.SetColor(rl.Green)
 			}
 			return Handled
 		})

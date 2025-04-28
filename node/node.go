@@ -3,6 +3,7 @@ package node
 import (
 	"image/color"
 
+	rl "github.com/gen2brain/raylib-go/raylib"
 	"github.com/google/uuid"
 	. "github.com/noahdw/goui/bounds"
 )
@@ -55,11 +56,26 @@ type BaseNode struct {
 	BaseRender
 	Bounds
 	dirtyPosition bool
+	DrawBounds    bool
 }
 
 func (b *BaseNode) Render() {
 	for _, child := range b.Children() {
 		child.Render()
+	}
+	if b.DrawBounds {
+		rl.DrawBoundingBox(rl.BoundingBox{
+			Min: rl.Vector3{
+				X: float32(b.X),
+				Y: float32(b.Y),
+				Z: 0,
+			},
+			Max: rl.Vector3{
+				X: float32(b.X) + float32(b.Width),
+				Y: float32(b.Y) + float32(b.Height),
+				Z: 0,
+			},
+		}, rl.Black)
 	}
 }
 
@@ -104,6 +120,14 @@ func (b *BaseNode) MaxChildHeight() float64 {
 		maxHeight = max(maxHeight, child.BoundingRect().Height)
 	}
 	return maxHeight
+}
+
+func (b *BaseNode) MaxChildWidth() float64 {
+	maxWidth := 0.0
+	for _, child := range b.Children() {
+		maxWidth = max(maxWidth, child.BoundingRect().Width)
+	}
+	return maxWidth
 }
 
 func (b *BaseNode) ID() string {
