@@ -1,34 +1,13 @@
 package main
 
 import (
+	"math/rand"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
-	"github.com/noahdw/goui/bounds"
-	. "github.com/noahdw/goui/bounds"
 	"github.com/noahdw/goui/component.go"
 	"github.com/noahdw/goui/core"
 	. "github.com/noahdw/goui/node"
 )
-
-type Button struct {
-	BaseNode
-}
-
-func (b *Button) Render() {
-	rl.DrawRectangle(int32(b.X), int32(b.Y), int32(b.Width), int32(b.Height), b.GetColor())
-	b.BaseNode.Render()
-}
-
-func NewButton(bounds bounds.Bounds) *Button {
-	return &Button{
-		BaseNode: BaseNode{
-			Bounds: bounds,
-			BaseRender: BaseRender{
-				Color:   rl.Black,
-				Opacity: 255,
-			},
-		},
-	}
-}
 
 func main() {
 	rl.InitWindow(1000, 700, "Vode")
@@ -36,20 +15,14 @@ func main() {
 	defer rl.CloseWindow()
 
 	root := &BaseNode{}
-	ui := core.NewUI(root)
+	renderThread := core.NewRenderThread(root)
 
-	panel := &BaseNode{
-		Bounds: Bounds{
-			X:      0,
-			Y:      0,
-			Width:  10000,
-			Height: 10000,
-		},
-	}
+	panel := &BaseNode{}
+	panel.SetSize(10000, 10000)
 	panel.OnMouseEvent(func(event MouseEvent) EventHandleState {
 		if event.IsMouseButtonDown() {
 			// Move around canvas by dragging mouse
-			camera := ui.GetCamera()
+			camera := renderThread.GetCamera()
 			delta := rl.GetMouseDelta()
 			delta = rl.Vector2Scale(delta, -1.0/camera.Zoom)
 			camera.Target = rl.Vector2Add(camera.Target, delta)
@@ -60,15 +33,14 @@ func main() {
 	root.AddChild(panel)
 
 	hBox := component.NewHorizontalBoxLayout()
-	hBox.SetSpacing(5)
 	hBox.DrawBounds = true
+	hBox.SetSpacing(5)
+
 	panel.AddChild(&hBox)
 	hBox.SetAlignment(component.AlignTop)
 
-	button2 := NewButton(Bounds{
-		Width:  100,
-		Height: 200,
-	})
+	button2 := component.NewButton()
+	button2.SetSize(100, 200)
 	button2.OnMouseEvent(func(event MouseEvent) EventHandleState {
 		if event.IsMouseButtonPressed() {
 			println("Wow it works2")
@@ -81,25 +53,44 @@ func main() {
 
 	hBox.AddChild(button2)
 
-	for range 10 {
-		button := vLayoutTest()
+	for i := range 10 {
+		button := component.NewButton()
+		button.SetSize(float64((i+1)*rand.Intn(40)+1), float64((i+1)*20))
+		button.SetText("Test text")
+		//button.Label.SetFontSize(32)
+		button.SetColor(rl.Green)
+		button.SetOpacity(0.1 * float32((i + 1)))
+		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
+			if event.IsMouseButtonPressed() {
+				println("Wow it works4")
+			} else if event.IsMouseButtonDown() {
+				button.SetColor(rl.Red)
+			} else if event.IsMouseButtonReleased() {
+				button.SetColor(rl.DarkGreen)
+			} else if event.IsMouseEntered() {
+				button.SetColor(rl.DarkGreen)
+			} else if event.IsMouseExited() {
+				button.SetColor(rl.Green)
+			}
+			return Handled
+		})
 		hBox.AddChild(button)
 	}
-	hBox.AddChild(vLayoutTest())
+	//hBox.AddChild(vLayoutTest())
 
-	ui.RenderLoop()
+	renderThread.StartRenderLoop()
 }
 
 func vLayoutTest() *component.VerticalBoxLayout {
 	vBox := component.NewVerticalBoxLayout()
 	vBox.SetSpacing(15)
 	vBox.SetAlignment(component.AlignLeft)
-
+	vBox.DrawBounds = true
 	for i := range 10 {
-		button := NewButton(Bounds{
-			Width:  float64((i + 1) * 20),
-			Height: float64((i + 1) * 20),
-		})
+		button := component.NewButton()
+		button.SetSize(float64((i+1)*rand.Intn(40)+1), float64((i+1)*20))
+		button.SetText("Test text")
+		//button.Label.SetFontSize(64)
 		button.SetColor(rl.Green)
 		button.SetOpacity(0.1 * float32((i + 1)))
 		button.OnMouseEvent(func(event MouseEvent) EventHandleState {

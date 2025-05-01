@@ -8,55 +8,67 @@ import (
 	. "github.com/noahdw/goui/bounds"
 )
 
-type Relational interface {
+func (b *BaseNode) removeChild(child Node) {
+
+}
+
+func (b *BaseNode) Children() []Node {
+	return b.children
+}
+
+func (b *BaseNode) Parent() Node {
+	return b.parent
+}
+
+func (b *BaseNode) SetParent(parent Node) {
+	b.parent = parent
+}
+
+type Node interface {
+	MouseHandler
 	AddChild(Node)
 	removeChild(Node)
 	Children() []Node
 	Parent() Node
 	SetParent(Node)
 	ID() string
-}
-
-type BaseRelation struct {
-	children []Node
-	parent   Node
-	id       string
-}
-
-func (b *BaseRelation) AddChild(child Node) {
-	b.children = append(b.children, child)
-}
-
-func (b *BaseRelation) removeChild(child Node) {
-
-}
-
-func (b *BaseRelation) Children() []Node {
-	return b.children
-}
-
-func (b *BaseRelation) Parent() Node {
-	return b.parent
-}
-
-func (b *BaseRelation) SetParent(parent Node) {
-	b.parent = parent
-}
-
-type Node interface {
-	Renderable
-	MouseHandler
-	Boundable
-	Relational
+	Render()
+	SetColor(color.RGBA)
+	GetColor() color.RGBA
+	SetOpacity(float32)
+	GetOpacity() uint8
+	BoundingRect() Bounds
+	SetGlobalPositionY(y float64)
+	SetGlobalPositionX(x float64)
+	SetPositionY(y float64)
+	SetPositionX(x float64)
+	CheckAndClearDirtyPosition() bool
+	GlobalPosition() (float64, float64)
+	SetGlobalPosition(x, y float64)
+	PositionX() float64
+	PositionY() float64
+	GlobalPositionX() float64
+	GlobalPositionY() float64
+	Width() float64
+	Height() float64
+	SetSize(width, height float64)
 }
 
 type BaseNode struct {
 	BaseMouseHandler
-	BaseRelation
-	BaseRender
-	Bounds
-	dirtyPosition bool
+	Color         color.RGBA
+	Opacity       uint8
+	DesiredBounds Bounds
 	DrawBounds    bool
+
+	bounds        Bounds
+	dirtyPosition bool
+	localXOffset  float64
+	localYOffset  float64
+	children      []Node
+	parent        Node
+	id            string
+	dirty         bool
 }
 
 func (b *BaseNode) Render() {
@@ -66,55 +78,151 @@ func (b *BaseNode) Render() {
 	if b.DrawBounds {
 		rl.DrawBoundingBox(rl.BoundingBox{
 			Min: rl.Vector3{
-				X: float32(b.X),
-				Y: float32(b.Y),
+				X: float32(b.bounds.X),
+				Y: float32(b.bounds.Y),
 				Z: 0,
 			},
 			Max: rl.Vector3{
-				X: float32(b.X) + float32(b.Width),
-				Y: float32(b.Y) + float32(b.Height),
+				X: float32(b.bounds.X) + float32(b.bounds.Width),
+				Y: float32(b.bounds.Y) + float32(b.bounds.Height),
 				Z: 0,
 			},
 		}, rl.Black)
 	}
 }
 
-func (b *BaseNode) SetParent(parent Node) {
-	b.BaseRelation.SetParent(parent)
-}
-
 func (b *BaseNode) AddChild(child Node) {
-	b.BaseRelation.AddChild(child)
+	b.children = append(b.children, child)
 	child.SetParent(b)
 }
 
 func (b *BaseNode) BoundingRect() Bounds {
-	return b.Bounds
+	return *b.bounds.BoundingRect()
 }
 
-func (b *BaseNode) SetPositionY(y float64) {
-	if b.Y == y {
+func (b *BaseNode) Width() float64 {
+	return b.bounds.Width
+}
+
+func (b *BaseNode) Height() float64 {
+	return b.bounds.Height
+}
+
+func (b *BaseNode) SetSize(width, height float64) {
+	b.bounds.Width = width
+	b.bounds.Height = height
+}
+
+func (b *BaseNode) Intersects(otherNode Node) bool {
+	return b.bounds.Intersects(otherNode.BoundingRect())
+}
+
+func (b *BaseNode) SetGlobalPosition(x, y float64) {
+	b.SetGlobalPositionX(x)
+	b.SetGlobalPositionY(y)
+}
+
+func (b *BaseNode) SetGlobalPositionX(x float64) {
+	if b.bounds.X == x {
 		return
 	}
-	b.Y = y
+	b.bounds.X = x
+	b.dirtyPosition = true
+}
+
+func (b *BaseNode) SetGlobalPositionY(y float64) {
+	if b.bounds.Y == y {
+		return
+	}
+	b.bounds.Y = y
+
 	b.dirtyPosition = true
 }
 
 func (b *BaseNode) SetPositionX(x float64) {
-	if b.X == x {
+	if b.localXOffset == x {
 		return
 	}
-	b.X = x
+	b.localXOffset = x
 	b.dirtyPosition = true
 }
 
-func (b *BaseNode) CheckAndClearDirtyPosition() bool {
+func (b *BaseNode) SetPositionY(y float64) {
+	if b.localYOffset == y {
+		return
+	}
+	b.localYOffset = y
+	b.dirtyPosition = true
+}
+
+func (b *BaseNode) SetWidth(width float64) {
+	if b.bounds.Width == width {
+		return
+	}
+	b.bounds.Width = width
+	b.dirtyPosition = true
+}
+
+func (b *BaseNode) Position() (float64, float64) {
+	return b.localXOffset, b.localYOffset
+}
+
+func (b *BaseNode) PositionX() float64 {
+	return b.localXOffset
+}
+
+func (b *BaseNode) PositionY() float64 {
+	return b.localYOffset
+}
+
+func (b *BaseNode) GlobalPositionX() float64 {
+	if b.parent != nil {
+		return b.Parent().GlobalPositionX() + b.localXOffset
+	}
+	return b.localXOffset
+}
+
+func (b *BaseNode) GlobalPositionY() float64 {
+	if b.parent != nil {
+		return b.Parent().GlobalPositionY() + b.localYOffset
+	}
+	return b.localYOffset
+}
+
+func (b *BaseNode) GlobalPosition() (float64, float64) {
+	if b.parent != nil {
+		if b.dirtyPosition {
+			x, y := b.parent.GlobalPosition()
+			b.bounds.X = x
+			b.bounds.Y = y
+			return x + b.localXOffset, y + b.localYOffset
+		} else {
+			return b.bounds.X, b.bounds.Y
+		}
+
+	}
+	return b.Position()
+}
+
+func (b *BaseNode) SetHeight(height float64) {
+	if b.bounds.Height == height {
+		return
+	}
+	b.bounds.Height = height
+	b.dirtyPosition = true
+}
+
+func (b *BaseNode) CheckAndClearDirtyPosition() bool { // NEED (internal)
 	isDirty := b.dirtyPosition
+	if isDirty {
+		b.bounds.X = b.GlobalPositionX()
+		b.bounds.Y = b.GlobalPositionY()
+	}
 	b.dirtyPosition = false
 	return isDirty
 }
 
-func (b *BaseNode) MaxChildHeight() float64 {
+func (b *BaseNode) MaxChildHeight() float64 { // CONV
 	maxHeight := 0.0
 	for _, child := range b.Children() {
 		maxHeight = max(maxHeight, child.BoundingRect().Height)
@@ -122,7 +230,7 @@ func (b *BaseNode) MaxChildHeight() float64 {
 	return maxHeight
 }
 
-func (b *BaseNode) MaxChildWidth() float64 {
+func (b *BaseNode) MaxChildWidth() float64 { // CONV
 	maxWidth := 0.0
 	for _, child := range b.Children() {
 		maxWidth = max(maxWidth, child.BoundingRect().Width)
@@ -137,44 +245,23 @@ func (b *BaseNode) ID() string {
 	return b.id
 }
 
-type Renderable interface {
-	Render()
-	SetColor(color.RGBA)
-	GetColor() color.RGBA
-	SetOpacity(float32)
-	GetOpacity() uint8
-}
-
-type BaseRender struct {
-	Color   color.RGBA
-	Opacity uint8
-	dirty   bool
-}
-
-func (b *BaseRender) SetColor(color color.RGBA) {
+func (b *BaseNode) SetColor(color color.RGBA) {
 	b.Color = color
 }
 
-func (b *BaseRender) SetOpacity(opacity float32) {
+func (b *BaseNode) SetOpacity(opacity float32) {
 	opacity = min(opacity, 1)
 	b.Opacity = MapRangeFloat32ToUint8(opacity, 0, 1, 0, 255)
 }
 
-func (b *BaseRender) GetColor() color.RGBA {
+func (b *BaseNode) GetColor() color.RGBA {
 	color := b.Color
 	color.A = uint8(b.Opacity)
 	return color
 }
 
-func (b *BaseRender) GetOpacity() uint8 {
+func (b *BaseNode) GetOpacity() uint8 {
 	return b.Opacity
-}
-
-type Boundable interface {
-	BoundingRect() Bounds
-	SetPositionY(float64)
-	SetPositionX(x float64)
-	CheckAndClearDirtyPosition() bool
 }
 
 func MapRangeFloat32ToUint8(value, fromLow, fromHigh float32, toLow, toHigh uint8) uint8 {

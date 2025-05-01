@@ -35,17 +35,17 @@ func NewVerticalBoxLayout() VerticalBoxLayout {
 }
 
 func (v *VerticalBoxLayout) Render() {
-	currentVerticalPosition := v.BoundingRect().Y
+	currentVerticalPosition := v.PositionY()
 	for _, child := range v.Children() {
 		child.SetPositionY(currentVerticalPosition)
 
 		if v.alignment == AlignLeft {
-			child.SetPositionX(v.BoundingRect().X)
+			child.SetPositionX(v.PositionX())
 		} else if v.alignment == AlignRight {
-			child.SetPositionX(v.BoundingRect().X + v.BoundingRect().Width) // wrong
+			child.SetPositionX(v.PositionX() + v.Width()) // wrong
 		}
 
-		currentVerticalPosition += child.BoundingRect().Height + v.spacing
+		currentVerticalPosition += child.Height() + v.spacing
 	}
 	v.BaseNode.Render()
 
@@ -60,16 +60,15 @@ func (v *VerticalBoxLayout) SetAlignment(alignment VLayoutAlignment) {
 }
 
 func (v *VerticalBoxLayout) BoundingRect() bounds.Bounds {
-	totalHeight := 0.
 	totalWidth := 0.
-	bounds := v.Bounds
+	totalHeight := 0.
 	for _, child := range v.Children() {
-		totalHeight += child.BoundingRect().Height
-		totalWidth += child.BoundingRect().Width
+		totalWidth += child.Width()
+		totalHeight += child.Height()
 	}
-	v.Bounds.Height = totalHeight + float64(len(v.Children())-1)*v.spacing
-	v.Bounds.Width = v.MaxChildWidth()
-	return bounds
+	v.SetWidth(v.MaxChildWidth())
+	v.SetHeight(totalHeight + float64(len(v.Children())-1)*v.spacing)
+	return v.BaseNode.BoundingRect()
 }
 
 type HorizontalBoxLayout struct {
@@ -90,16 +89,16 @@ func (h *HorizontalBoxLayout) Render() {
 	if h.alignment == AlignBottom {
 		maxChildHeight = h.MaxChildHeight()
 	}
-	currentHorizPosition := h.Y
+	y := h.PositionY()
+	currentHorizPosition := y
 	for _, child := range h.Children() {
 		child.SetPositionX(currentHorizPosition)
 		if h.alignment == AlignTop {
-			child.SetPositionY(h.BoundingRect().Y)
+			child.SetPositionY(y)
 		} else if h.alignment == AlignBottom {
-			child.SetPositionY(maxChildHeight - child.BoundingRect().Height)
+			child.SetPositionY(maxChildHeight - child.Height())
 		}
-		childRect := child.BoundingRect()
-		currentHorizPosition += childRect.Width + h.spacing
+		currentHorizPosition += child.Width() + h.spacing
 	}
 	h.BaseNode.Render()
 }
@@ -121,7 +120,7 @@ func (h *HorizontalBoxLayout) BoundingRect() bounds.Bounds {
 		totalWidth += child.BoundingRect().Width
 	}
 
-	h.Bounds.Height = h.MaxChildHeight()
-	h.Bounds.Width = totalWidth + float64(len(h.Children())-1)*h.spacing
-	return h.Bounds
+	h.SetWidth(totalWidth + float64(len(h.Children())-1)*h.spacing)
+	h.SetHeight(h.MaxChildHeight())
+	return h.BaseNode.BoundingRect()
 }
