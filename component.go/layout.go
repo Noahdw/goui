@@ -35,6 +35,11 @@ func NewVerticalBoxLayout() VerticalBoxLayout {
 }
 
 func (v *VerticalBoxLayout) Render() {
+
+	v.BaseNode.Render()
+}
+
+func (v *VerticalBoxLayout) UpdateLayout() {
 	currentVerticalPosition := v.PositionY()
 	for _, child := range v.Children() {
 		child.SetPositionY(currentVerticalPosition)
@@ -44,11 +49,8 @@ func (v *VerticalBoxLayout) Render() {
 		} else if v.alignment == AlignRight {
 			child.SetPositionX(v.PositionX() + v.Width()) // wrong
 		}
-
 		currentVerticalPosition += child.Height() + v.spacing
 	}
-	v.BaseNode.Render()
-
 }
 
 func (v *VerticalBoxLayout) SetSpacing(spacing float64) {
@@ -101,6 +103,12 @@ func (h *HorizontalBoxLayout) Render() {
 		currentHorizPosition += child.Width() + h.spacing
 	}
 	h.BaseNode.Render()
+}
+
+func (h *HorizontalBoxLayout) OnMarkDirty() {
+	// for _, child := range h.Children() {
+	// 	//child.ForceMarkDirty()
+	// }
 }
 
 func (h *HorizontalBoxLayout) SetSpacing(spacing float64) {

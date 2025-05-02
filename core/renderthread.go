@@ -5,15 +5,12 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	. "github.com/noahdw/goui/bounds"
 	. "github.com/noahdw/goui/node"
-	. "github.com/noahdw/goui/quadtree"
 )
 
 type RenderThread struct {
-	camera     rl.Camera2D
-	root       Node
-	boundsTree Quadtree
+	camera rl.Camera2D
+	root   Node
 }
 
 func NewRenderThread(root Node) RenderThread {
@@ -22,28 +19,11 @@ func NewRenderThread(root Node) RenderThread {
 			Zoom: 1,
 		},
 		root: root,
-		boundsTree: Quadtree{
-			Bounds: Bounds{
-				X:      0,
-				Y:      0,
-				Width:  10000,
-				Height: 10000,
-			},
-			MaxObjects: 4,
-			MaxLevels:  8,
-			Level:      0,
-			Objects:    make([]Node, 0),
-			Nodes:      make([]Quadtree, 0),
-		},
 	}
 }
 
 // Begins the render loop, blocking the caller until exit
 func (r *RenderThread) StartRenderLoop() {
-	// The scene has been set up, all child/parent relations made, so we can set up the quad tree
-	// corresponding to the scene
-	r.addToBoundstree(r.root)
-
 	// Tracks the object which received the last render cycle's mouse focus event.
 	// Useful for determing mouse enter / exit events
 	var lastFoundObj Node
@@ -63,15 +43,11 @@ func (r *RenderThread) StartRenderLoop() {
 		cursor.SetSize(0, 0)
 		mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), r.camera)
 		cursor.SetGlobalPosition(float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-		// To determine what's underneath the cursor, we treat the cursor as a point (Size 0) and see
-		// if any bounds of the nodes in the quadtree intersect it.
-		var foundObj Node
-		objs := r.boundsTree.Retrieve(cursor)
-		for _, objUnderCursor := range objs {
-			if cursor.Intersects(objUnderCursor) {
-				foundObj = objUnderCursor
-			}
-		}
+		// To determine what's underneath the cursor, we treat the cursor as a point (Size 0)
+		var foundObj = r.getObjUnderCursor(r.root, cursor)
+		//objs := r.boundsTree.Retrieve(cursor)
+		//println(foundObj)
+
 		// Handle event propogation for mouse
 		// Events are sent to the object found under the cursor
 		// and are either handled or propogated up the chain allowing
@@ -138,11 +114,20 @@ func (r *RenderThread) GetCamera() *rl.Camera2D {
 	return &r.camera
 }
 
-func (r *RenderThread) addToBoundstree(node Node) {
-	r.boundsTree.Insert(node)
-	for _, child := range node.Children() {
-		r.addToBoundstree(child)
+func (r *RenderThread) getObjUnderCursor(node, cursor Node) Node {
+	nodebr := node.BoundingRect()
+	if !nodebr.Intersects(cursor.BoundingRect()) {
+		return nil
 	}
+
+	foundObj := node
+	for _, child := range node.Children() {
+		fo := r.getObjUnderCursor(child, cursor)
+		if fo != nil {
+			foundObj = fo
+		}
+	}
+	return foundObj
 }
 
 func (r *RenderThread) bubbleMouseEvent(event MouseEvent, node Node) {
@@ -155,11 +140,13 @@ func (r *RenderThread) bubbleMouseEvent(event MouseEvent, node Node) {
 }
 
 func (r *RenderThread) updateNodesWithDirtyPositions(node Node) {
-	if node.CheckAndClearDirtyPosition() {
-		// Position is dirty, update in quadtree
-		r.boundsTree.Remove(node.ID())
-		r.boundsTree.Insert(node)
+	if !node.CheckAndClearDirtyPosition() {
+		return
 	}
+	node.UpdateLayout()
+	// Position is dirty, update in quadtree
+	//r.boundsTree.Remove(node.ID())
+	//r.boundsTree.Insert(node)
 
 	// Check children recursively
 	for _, child := range node.Children() {

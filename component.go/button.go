@@ -13,9 +13,13 @@ type Button struct {
 func (b *Button) Render() {
 	x, y := b.GlobalPosition()
 	rl.DrawRectangle(int32(x), int32(y), int32(b.Width()), int32(b.Height()), b.GetColor())
+
+	b.label.Render()
+}
+
+func (b *Button) UpdateLayout() {
 	b.label.SetPositionX(b.Width()/2 - b.label.Width()/2)
 	b.label.SetPositionY(b.Height()/2 - b.label.Height()/2)
-	b.label.Render()
 }
 
 func NewButton() *Button {

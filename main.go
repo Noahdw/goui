@@ -15,6 +15,7 @@ func main() {
 	defer rl.CloseWindow()
 
 	root := &BaseNode{}
+	root.SetSize(100000, 100000)
 	renderThread := core.NewRenderThread(root)
 
 	panel := &BaseNode{}
@@ -33,7 +34,6 @@ func main() {
 	root.AddChild(panel)
 
 	hBox := component.NewHorizontalBoxLayout()
-	hBox.DrawBounds = true
 	hBox.SetSpacing(5)
 
 	panel.AddChild(&hBox)
@@ -53,16 +53,18 @@ func main() {
 
 	hBox.AddChild(button2)
 
-	for i := range 10 {
+	for i := range 3 {
 		button := component.NewButton()
 		button.SetSize(float64((i+1)*rand.Intn(40)+1), float64((i+1)*20))
 		button.SetText("Test text")
 		//button.Label.SetFontSize(32)
 		button.SetColor(rl.Green)
 		button.SetOpacity(0.1 * float32((i + 1)))
+		button.DrawBounds = true
 		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
 			if event.IsMouseButtonPressed() {
 				println("Wow it works4")
+				button.SetWidth(button.Width() + 100)
 			} else if event.IsMouseButtonDown() {
 				button.SetColor(rl.Red)
 			} else if event.IsMouseButtonReleased() {
@@ -85,13 +87,13 @@ func vLayoutTest() *component.VerticalBoxLayout {
 	vBox := component.NewVerticalBoxLayout()
 	vBox.SetSpacing(15)
 	vBox.SetAlignment(component.AlignLeft)
-	vBox.DrawBounds = true
 	for i := range 10 {
 		button := component.NewButton()
 		button.SetSize(float64((i+1)*rand.Intn(40)+1), float64((i+1)*20))
 		button.SetText("Test text")
 		//button.Label.SetFontSize(64)
 		button.SetColor(rl.Green)
+
 		button.SetOpacity(0.1 * float32((i + 1)))
 		button.OnMouseEvent(func(event MouseEvent) EventHandleState {
 			if event.IsMouseButtonPressed() {

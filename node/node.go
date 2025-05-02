@@ -52,6 +52,8 @@ type Node interface {
 	Width() float64
 	Height() float64
 	SetSize(width, height float64)
+	markDirty()
+	UpdateLayout()
 }
 
 type BaseNode struct {
@@ -126,17 +128,16 @@ func (b *BaseNode) SetGlobalPositionX(x float64) {
 	if b.bounds.X == x {
 		return
 	}
-	b.bounds.X = x
-	b.dirtyPosition = true
+	b.bounds.X = x // should actually adjust local pos
+	b.markDirty()
 }
 
 func (b *BaseNode) SetGlobalPositionY(y float64) {
 	if b.bounds.Y == y {
 		return
 	}
-	b.bounds.Y = y
-
-	b.dirtyPosition = true
+	b.bounds.Y = y // should actually adjust local pos
+	b.markDirty()
 }
 
 func (b *BaseNode) SetPositionX(x float64) {
@@ -144,7 +145,7 @@ func (b *BaseNode) SetPositionX(x float64) {
 		return
 	}
 	b.localXOffset = x
-	b.dirtyPosition = true
+	b.markDirty()
 }
 
 func (b *BaseNode) SetPositionY(y float64) {
@@ -152,7 +153,7 @@ func (b *BaseNode) SetPositionY(y float64) {
 		return
 	}
 	b.localYOffset = y
-	b.dirtyPosition = true
+	b.markDirty()
 }
 
 func (b *BaseNode) SetWidth(width float64) {
@@ -160,7 +161,7 @@ func (b *BaseNode) SetWidth(width float64) {
 		return
 	}
 	b.bounds.Width = width
-	b.dirtyPosition = true
+	b.markDirty()
 }
 
 func (b *BaseNode) Position() (float64, float64) {
@@ -209,17 +210,19 @@ func (b *BaseNode) SetHeight(height float64) {
 		return
 	}
 	b.bounds.Height = height
-	b.dirtyPosition = true
+	b.markDirty()
 }
 
 func (b *BaseNode) CheckAndClearDirtyPosition() bool { // NEED (internal)
 	isDirty := b.dirtyPosition
-	if isDirty {
-		b.bounds.X = b.GlobalPositionX()
-		b.bounds.Y = b.GlobalPositionY()
+	if !isDirty {
+		return false
 	}
+	b.bounds.X = b.GlobalPositionX()
+	b.bounds.Y = b.GlobalPositionY()
 	b.dirtyPosition = false
-	return isDirty
+
+	return true
 }
 
 func (b *BaseNode) MaxChildHeight() float64 { // CONV
@@ -228,6 +231,17 @@ func (b *BaseNode) MaxChildHeight() float64 { // CONV
 		maxHeight = max(maxHeight, child.BoundingRect().Height)
 	}
 	return maxHeight
+}
+
+// Bubbles the dirty marker up the tree
+func (b *BaseNode) markDirty() {
+	if b.dirtyPosition == true {
+		return
+	}
+	b.dirtyPosition = true
+	if b.parent != nil {
+		b.parent.markDirty()
+	}
 }
 
 func (b *BaseNode) MaxChildWidth() float64 { // CONV
@@ -262,6 +276,10 @@ func (b *BaseNode) GetColor() color.RGBA {
 
 func (b *BaseNode) GetOpacity() uint8 {
 	return b.Opacity
+}
+
+func (b *BaseNode) UpdateLayout() {
+
 }
 
 func MapRangeFloat32ToUint8(value, fromLow, fromHigh float32, toLow, toHigh uint8) uint8 {
