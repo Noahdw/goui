@@ -1,296 +1,452 @@
 package node
 
 import (
-	"image/color"
-
-	rl "github.com/gen2brain/raylib-go/raylib"
-	"github.com/google/uuid"
-	. "github.com/noahdw/goui/bounds"
+	"strconv"
+	"strings"
 )
 
-func (b *BaseNode) removeChild(child Node) {
-
-}
-
-func (b *BaseNode) Children() []Node {
-	return b.children
-}
-
-func (b *BaseNode) Parent() Node {
-	return b.parent
-}
-
-func (b *BaseNode) SetParent(parent Node) {
-	b.parent = parent
-}
-
 type Node interface {
-	MouseHandler
-	AddChild(Node)
-	removeChild(Node)
-	Children() []Node
-	Parent() Node
-	SetParent(Node)
-	ID() string
-	Render()
-	SetColor(color.RGBA)
-	GetColor() color.RGBA
-	SetOpacity(float32)
-	GetOpacity() uint8
-	BoundingRect() Bounds
-	SetGlobalPositionY(y float64)
-	SetGlobalPositionX(x float64)
-	SetPositionY(y float64)
-	SetPositionX(x float64)
-	CheckAndClearDirtyPosition() bool
-	GlobalPosition() (float64, float64)
-	SetGlobalPosition(x, y float64)
-	PositionX() float64
-	PositionY() float64
-	GlobalPositionX() float64
-	GlobalPositionY() float64
-	Width() float64
-	Height() float64
-	SetSize(width, height float64)
-	markDirty()
-	UpdateLayout()
+	// Style methods
+	Width(value interface{}) Node
+	Height(value interface{}) Node
+	Margin(value interface{}) Node
+	Padding(value interface{}) Node
+	FontSize(value interface{}) Node
+	Color(value string) Node
+	Background(value string) Node
+	// ... other style methods
+
+	// Structure methods
+	AddChildren(children ...Node)
+	GetType() string
+	GetStyles() Styles
+
+	// Layout methods
+	ResolveStyles(parentStyles Styles) Styles
+	MeasurePreferred(ctx RenderContext) Size
+	Layout(ctx RenderContext, constraints Constraints) Size
+	ArrangeChildren(ctx RenderContext, bounds Rect)
+	Paint(ctx RenderContext)
+	GetFinalSize() Size
 }
 
 type BaseNode struct {
-	BaseMouseHandler
-	Color         color.RGBA
-	Opacity       uint8
-	DesiredBounds Bounds
-	DrawBounds    bool
-
-	bounds        Bounds
-	dirtyPosition bool
-	localXOffset  float64
-	localYOffset  float64
-	children      []Node
-	parent        Node
-	id            string
-	dirty         bool
+	nodeType    string
+	children    []Node
+	styles      Styles
+	finalSize   Size
+	finalBounds Rect
 }
 
-func (b *BaseNode) Render() {
-	for _, child := range b.Children() {
-		child.Render()
+// Size represents width and height
+type Size struct {
+	Width, Height float64
+}
+
+// Point represents x and y coordinates
+type Point struct {
+	X, Y float64
+}
+
+// Rect represents a rectangle with position and size
+type Rect struct {
+	Position Point
+	Size     Size
+}
+
+// Constraints represents size constraints
+type Constraints struct {
+	MinWidth, MaxWidth, MinHeight, MaxHeight float64
+}
+
+// RenderContext provides context for rendering
+type RenderContext interface {
+	// Drawing methods would go here
+	Clear()
+	DrawBackground(bounds Rect, color Color)
+	DrawBorders(bounds Rect, border BorderStyle)
+	DrawText(text string, bounds Rect, styles Styles)
+	ClipRect() Rect
+	Present()
+}
+
+// Style method implementations for BaseNode
+func (n *BaseNode) Width(value interface{}) Node {
+	n.styles.Width = parseStyleValue(value)
+	n.styles.setProperties[string(WidthProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Height(value interface{}) Node {
+	n.styles.Height = parseStyleValue(value)
+	n.styles.setProperties[string(HeightProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Margin(value interface{}) Node {
+	m := parseMarginPadding(value)
+	n.styles.Margin = m
+	n.styles.setProperties[string(MarginProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Padding(value interface{}) Node {
+	p := parseMarginPadding(value)
+	n.styles.Padding = p
+	n.styles.setProperties[string(PaddingProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) FontSize(value interface{}) Node {
+	n.styles.FontSize = parseStyleValue(value)
+	n.styles.setProperties[string(FontSizeProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Color(value string) Node {
+	n.styles.Color = parseColor(value)
+	n.styles.setProperties[string(ColorProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Background(value string) Node {
+	n.styles.Background = parseColor(value)
+	n.styles.setProperties[string(BackgroundProp)] = Explicit
+	return n
+}
+
+// Helper to parse margin/padding values
+func parseMarginPadding(value interface{}) EdgeInsets {
+	switch v := value.(type) {
+	case int:
+		return EdgeInsets{float64(v), float64(v), float64(v), float64(v)}
+	case float64:
+		return EdgeInsets{v, v, v, v}
+	case [4]int:
+		return EdgeInsets{float64(v[0]), float64(v[1]), float64(v[2]), float64(v[3])}
+	case [4]float64:
+		return EdgeInsets{v[0], v[1], v[2], v[3]}
+	case [2]int:
+		return EdgeInsets{float64(v[0]), float64(v[1]), float64(v[0]), float64(v[1])}
+	case [2]float64:
+		return EdgeInsets{v[0], v[1], v[0], v[1]}
 	}
-	if b.DrawBounds {
-		rl.DrawBoundingBox(rl.BoundingBox{
-			Min: rl.Vector3{
-				X: float32(b.bounds.X),
-				Y: float32(b.bounds.Y),
-				Z: 0,
-			},
-			Max: rl.Vector3{
-				X: float32(b.bounds.X) + float32(b.bounds.Width),
-				Y: float32(b.bounds.Y) + float32(b.bounds.Height),
-				Z: 0,
-			},
-		}, rl.Black)
+	// Default
+	return EdgeInsets{0, 0, 0, 0}
+}
+
+// Helper to parse color values
+func parseColor(value string) Color {
+	if value == "transparent" {
+		return Transparent
 	}
-}
 
-func (b *BaseNode) AddChild(child Node) {
-	b.children = append(b.children, child)
-	child.SetParent(b)
-}
-
-func (b *BaseNode) BoundingRect() Bounds {
-	return *b.bounds.BoundingRect()
-}
-
-func (b *BaseNode) Width() float64 {
-	return b.bounds.Width
-}
-
-func (b *BaseNode) Height() float64 {
-	return b.bounds.Height
-}
-
-func (b *BaseNode) SetSize(width, height float64) {
-	b.bounds.Width = width
-	b.bounds.Height = height
-}
-
-func (b *BaseNode) Intersects(otherNode Node) bool {
-	return b.bounds.Intersects(otherNode.BoundingRect())
-}
-
-func (b *BaseNode) SetGlobalPosition(x, y float64) {
-	b.SetGlobalPositionX(x)
-	b.SetGlobalPositionY(y)
-}
-
-func (b *BaseNode) SetGlobalPositionX(x float64) {
-	if b.bounds.X == x {
-		return
+	// Handle named colors
+	switch value {
+	case "black":
+		return Black
+	case "white":
+		return White
+	case "red":
+		return Red
+	case "green":
+		return Green
+	case "blue":
+		return Blue
+	case "yellow":
+		return Yellow
+	case "cyan":
+		return Cyan
+	case "magenta":
+		return Magenta
+	case "gray":
+		return Gray
 	}
-	b.bounds.X = x // should actually adjust local pos
-	b.markDirty()
-}
 
-func (b *BaseNode) SetGlobalPositionY(y float64) {
-	if b.bounds.Y == y {
-		return
+	// Handle hex colors
+	if strings.HasPrefix(value, "#") {
+		hex := value[1:]
+		if len(hex) == 3 {
+			// #RGB format
+			r, _ := strconv.ParseUint(string(hex[0])+string(hex[0]), 16, 8)
+			g, _ := strconv.ParseUint(string(hex[1])+string(hex[1]), 16, 8)
+			b, _ := strconv.ParseUint(string(hex[2])+string(hex[2]), 16, 8)
+			return Color{uint8(r), uint8(g), uint8(b), 255}
+		} else if len(hex) == 6 {
+			// #RRGGBB format
+			r, _ := strconv.ParseUint(hex[0:2], 16, 8)
+			g, _ := strconv.ParseUint(hex[2:4], 16, 8)
+			b, _ := strconv.ParseUint(hex[4:6], 16, 8)
+			return Color{uint8(r), uint8(g), uint8(b), 255}
+		}
 	}
-	b.bounds.Y = y // should actually adjust local pos
-	b.markDirty()
+
+	// Default to black for invalid colors
+	return Black
 }
 
-func (b *BaseNode) SetPositionX(x float64) {
-	if b.localXOffset == x {
-		return
+// Structure methods
+func (n *BaseNode) AddChildren(children ...Node) {
+	n.children = append(n.children, children...)
+}
+
+func (n *BaseNode) GetType() string {
+	return n.nodeType
+}
+
+func (n *BaseNode) GetStyles() Styles {
+	return n.styles
+}
+
+// Layout methods
+func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
+	// Start with this node's styles
+	resolvedStyles := n.styles
+
+	// For inheritable properties, check if they're set in this node
+	// If not, inherit from parent
+	inheritableProps := []StyleProperty{
+		FontFamilyProp, FontSizeProp, ColorProp, LineHeightProp, BackgroundProp,
 	}
-	b.localXOffset = x
-	b.markDirty()
-}
 
-func (b *BaseNode) SetPositionY(y float64) {
-	if b.localYOffset == y {
-		return
+	for _, prop := range inheritableProps {
+		// Only inherit if:
+		// 1. Parent has the property set (explicitly or inherited)
+		// 2. This node doesn't have it explicitly set
+		parentSource, parentHasIt := parentStyles.setProperties[string(prop)]
+		parentHasIt = (parentSource == Explicit || parentSource == Inherited)
+
+		selfSource, selfHasIt := resolvedStyles.setProperties[string(prop)]
+		selfHasIt = (selfSource == Explicit)
+
+		if parentHasIt && !selfHasIt {
+
+			switch prop {
+			case FontFamilyProp:
+				resolvedStyles.FontFamily = parentStyles.FontFamily
+				resolvedStyles.setProperties[string(prop)] = Inherited
+			case FontSizeProp:
+				resolvedStyles.FontSize = parentStyles.FontSize
+				resolvedStyles.FontSize.Source = Inherited
+				resolvedStyles.setProperties[string(prop)] = Inherited
+			case ColorProp:
+				resolvedStyles.Color = parentStyles.Color
+				resolvedStyles.setProperties[string(prop)] = Inherited
+			case BackgroundProp:
+				resolvedStyles.Background = parentStyles.Background
+				resolvedStyles.setProperties[string(prop)] = Inherited
+			case LineHeightProp:
+				resolvedStyles.LineHeight = parentStyles.LineHeight
+				resolvedStyles.LineHeight.Source = Inherited
+				resolvedStyles.setProperties[string(prop)] = Inherited
+			}
+
+		}
 	}
-	b.localYOffset = y
-	b.markDirty()
-}
 
-func (b *BaseNode) SetWidth(width float64) {
-	if b.bounds.Width == width {
-		return
+	// Apply the same process to all children
+	for _, child := range n.children {
+		child.ResolveStyles(resolvedStyles)
 	}
-	b.bounds.Width = width
-	b.markDirty()
+	n.styles = resolvedStyles
+	return resolvedStyles
 }
 
-func (b *BaseNode) Position() (float64, float64) {
-	return b.localXOffset, b.localYOffset
-}
-
-func (b *BaseNode) PositionX() float64 {
-	return b.localXOffset
-}
-
-func (b *BaseNode) PositionY() float64 {
-	return b.localYOffset
-}
-
-func (b *BaseNode) GlobalPositionX() float64 {
-	if b.parent != nil {
-		return b.Parent().GlobalPositionX() + b.localXOffset
+func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
+	// For leaf nodes, calculate intrinsic size
+	if len(n.children) == 0 {
+		return Size{0, 0} // Override in specific node types
 	}
-	return b.localXOffset
-}
 
-func (b *BaseNode) GlobalPositionY() float64 {
-	if b.parent != nil {
-		return b.Parent().GlobalPositionY() + b.localYOffset
+	// For container nodes, measure all children first
+	childSizes := make([]Size, len(n.children))
+	for i, child := range n.children {
+		childSizes[i] = child.MeasurePreferred(ctx)
 	}
-	return b.localYOffset
+
+	// Based on layout type, calculate how big this node needs to be
+	var totalSize Size
+	switch n.styles.FlexDirection {
+	case "row":
+		// Sum width, max height
+		for _, size := range childSizes {
+			totalSize.Width += size.Width
+			if size.Height > totalSize.Height {
+				totalSize.Height = size.Height
+			}
+		}
+		// Add spacing between items
+		if len(childSizes) > 1 {
+			totalSize.Width += float64(len(childSizes)-1) * n.styles.Margin.Left
+		}
+	case "column":
+		// Sum height, max width
+		for _, size := range childSizes {
+			totalSize.Height += size.Height
+			if size.Width > totalSize.Width {
+				totalSize.Width = size.Width
+			}
+		}
+		// Add spacing between items
+		if len(childSizes) > 1 {
+			totalSize.Height += float64(len(childSizes)-1) * n.styles.Margin.Top
+		}
+	}
+
+	// Add padding
+	totalSize.Width += n.styles.Padding.Left + n.styles.Padding.Right
+	totalSize.Height += n.styles.Padding.Top + n.styles.Padding.Bottom
+
+	return totalSize
 }
 
-func (b *BaseNode) GlobalPosition() (float64, float64) {
-	if b.parent != nil {
-		if b.dirtyPosition {
-			x, y := b.parent.GlobalPosition()
-			b.bounds.X = x
-			b.bounds.Y = y
-			return x + b.localXOffset, y + b.localYOffset
-		} else {
-			return b.bounds.X, b.bounds.Y
+func (n *BaseNode) Layout(ctx RenderContext, constraints Constraints) Size {
+	// Start with preferred size
+	preferredSize := n.MeasurePreferred(ctx)
+
+	// Apply constraints to determine final size
+	finalSize := Size{
+		Width:  clamp(preferredSize.Width, constraints.MinWidth, constraints.MaxWidth),
+		Height: clamp(preferredSize.Height, constraints.MinHeight, constraints.MaxHeight),
+	}
+
+	// Handle special cases like Fill Parent
+	if n.styles.Width.Type == PERCENTAGE {
+		finalSize.Width = constraints.MaxWidth * n.styles.Width.Value / 100
+	}
+
+	if n.styles.Height.Type == PERCENTAGE {
+		finalSize.Height = constraints.MaxHeight * n.styles.Height.Value / 100
+	}
+
+	// If we have children, layout them now
+	if len(n.children) > 0 {
+		// Calculate available space for children (minus padding)
+		availableWidth := finalSize.Width - n.styles.Padding.Left - n.styles.Padding.Right
+		availableHeight := finalSize.Height - n.styles.Padding.Top - n.styles.Padding.Bottom
+
+		// Create child constraints based on layout direction
+		childConstraints := Constraints{
+			MinWidth:  0,
+			MaxWidth:  availableWidth,
+			MinHeight: 0,
+			MaxHeight: availableHeight,
 		}
 
+		// Layout each child
+		for _, child := range n.children {
+			_ = child.Layout(ctx, childConstraints)
+		}
 	}
-	return b.Position()
+
+	// Store final size for use in arrangement pass
+	n.finalSize = finalSize
+	return finalSize
 }
 
-func (b *BaseNode) SetHeight(height float64) {
-	if b.bounds.Height == height {
+func (n *BaseNode) ArrangeChildren(ctx RenderContext, bounds Rect) {
+	// Set this node's final bounds
+	n.finalBounds = bounds
+
+	// For leaf nodes, we're done
+	if len(n.children) == 0 {
 		return
 	}
-	b.bounds.Height = height
-	b.markDirty()
-}
 
-func (b *BaseNode) CheckAndClearDirtyPosition() bool { // NEED (internal)
-	isDirty := b.dirtyPosition
-	if !isDirty {
-		return false
-	}
-	b.bounds.X = b.GlobalPositionX()
-	b.bounds.Y = b.GlobalPositionY()
-	b.dirtyPosition = false
-
-	return true
-}
-
-func (b *BaseNode) MaxChildHeight() float64 { // CONV
-	maxHeight := 0.0
-	for _, child := range b.Children() {
-		maxHeight = max(maxHeight, child.BoundingRect().Height)
-	}
-	return maxHeight
-}
-
-// Bubbles the dirty marker up the tree
-func (b *BaseNode) markDirty() {
-	if b.dirtyPosition == true {
-		return
-	}
-	b.dirtyPosition = true
-	if b.parent != nil {
-		b.parent.markDirty()
-	}
-}
-
-func (b *BaseNode) MaxChildWidth() float64 { // CONV
-	maxWidth := 0.0
-	for _, child := range b.Children() {
-		maxWidth = max(maxWidth, child.BoundingRect().Width)
-	}
-	return maxWidth
-}
-
-func (b *BaseNode) ID() string {
-	if b.id == "" {
-		b.id = uuid.New().String()
-	}
-	return b.id
-}
-
-func (b *BaseNode) SetColor(color color.RGBA) {
-	b.Color = color
-}
-
-func (b *BaseNode) SetOpacity(opacity float32) {
-	opacity = min(opacity, 1)
-	b.Opacity = MapRangeFloat32ToUint8(opacity, 0, 1, 0, 255)
-}
-
-func (b *BaseNode) GetColor() color.RGBA {
-	color := b.Color
-	color.A = uint8(b.Opacity)
-	return color
-}
-
-func (b *BaseNode) GetOpacity() uint8 {
-	return b.Opacity
-}
-
-func (b *BaseNode) UpdateLayout() {
-
-}
-
-func MapRangeFloat32ToUint8(value, fromLow, fromHigh float32, toLow, toHigh uint8) uint8 {
-	ratio := (value - fromLow) / (fromHigh - fromLow)
-	result := float32(toLow) + ratio*(float32(toHigh)-float32(toLow))
-
-	if result < 0 {
-		result = 0
-	} else if result > 255 {
-		result = 255
+	// Calculate content area (bounds minus padding)
+	contentArea := Rect{
+		Position: Point{
+			X: bounds.Position.X + n.styles.Padding.Left,
+			Y: bounds.Position.Y + n.styles.Padding.Top,
+		},
+		Size: Size{
+			Width:  bounds.Size.Width - n.styles.Padding.Left - n.styles.Padding.Right,
+			Height: bounds.Size.Height - n.styles.Padding.Top - n.styles.Padding.Bottom,
+		},
 	}
 
-	return uint8(result)
+	// Position each child based on layout direction
+	var currentX = contentArea.Position.X
+	var currentY = contentArea.Position.Y
+
+	for _, child := range n.children {
+		childSize := child.GetFinalSize()
+
+		if n.styles.FlexDirection == "row" {
+			childBounds := Rect{
+				Position: Point{X: currentX, Y: currentY},
+				Size:     childSize,
+			}
+			child.ArrangeChildren(ctx, childBounds)
+			currentX += childSize.Width + n.styles.Margin.Right
+		} else { // column
+			childBounds := Rect{
+				Position: Point{X: currentX, Y: currentY},
+				Size:     childSize,
+			}
+			child.ArrangeChildren(ctx, childBounds)
+			currentY += childSize.Height + n.styles.Margin.Bottom
+		}
+	}
+}
+
+func (n *BaseNode) GetFinalSize() Size {
+	return n.finalSize
+}
+
+func (n *BaseNode) Paint(ctx RenderContext) {
+	// Draw this node's background
+	ctx.DrawBackground(n.finalBounds, n.styles.Background)
+
+	// Draw borders if needed
+	if n.styles.Border.Style != "none" {
+		ctx.DrawBorders(n.finalBounds, n.styles.Border)
+	}
+
+	// Draw all children
+	for _, child := range n.children {
+		child.Paint(ctx)
+	}
+}
+
+// TextNode is a specialized node for text content
+type TextNode struct {
+	BaseNode
+	text string
+}
+
+// Specialized implementation for TextNode
+func (n *TextNode) MeasurePreferred(ctx RenderContext) Size {
+	// In a real implementation, would calculate text metrics
+	// For this example, we'll use a simple approximation
+	fontSize := n.styles.FontSize.Value
+	charWidth := fontSize * 0.6
+
+	return Size{
+		Width:  float64(len(n.text)) * charWidth,
+		Height: fontSize * 1.2,
+	}
+}
+
+func (n *TextNode) Paint(ctx RenderContext) {
+	// Draw background and border first
+	ctx.DrawBackground(n.finalBounds, n.styles.Background)
+
+	if n.styles.Border.Style != "none" {
+		ctx.DrawBorders(n.finalBounds, n.styles.Border)
+	}
+
+	// Then draw the text
+	ctx.DrawText(n.text, n.finalBounds, n.styles)
+}
+
+// Helper function to clamp a value between min and max
+func clamp(value, min, max float64) float64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }
