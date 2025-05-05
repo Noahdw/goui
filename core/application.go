@@ -57,6 +57,7 @@ func (app *Application) Run() {
 }
 
 func initRaylib(title string, width, height int) {
+	rl.SetConfigFlags(rl.FlagMsaa4xHint)
 	rl.InitWindow(int32(width), int32(height), title)
 	rl.SetTargetFPS(120)
 }
@@ -77,7 +78,7 @@ func endDrawing() {
 }
 
 func shouldWindowClose() bool {
-	return false
+	return rl.WindowShouldClose()
 }
 
 func processInputEvents(root node.Node) {

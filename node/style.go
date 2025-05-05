@@ -95,7 +95,7 @@ type EdgeInsets struct {
 // BorderStyle represents border properties
 type BorderStyle struct {
 	Width EdgeInsets
-	Style string // "solid", "dashed", etc.
+	Style string // "solid", "dashed", "none"
 	Color Color
 }
 
@@ -263,7 +263,7 @@ func NewStyles(props StyleProps) Styles {
 		Color:      Black,
 
 		Background:   White,
-		Border:       BorderStyle{EdgeInsets{0, 0, 0, 0}, "none", Transparent},
+		Border:       BorderStyle{EdgeInsets{0, 0, 0, 0}, "none", Black},
 		BorderRadius: EdgeInsets{0, 0, 0, 0},
 		Shadow:       ShadowStyle{0, 0, 0, 0, Transparent},
 		Opacity:      1.0,
@@ -277,39 +277,52 @@ func NewStyles(props StyleProps) Styles {
 		styles.Width.Source = Default
 		styles.setProperties[string(WidthProp)] = Default
 	}
-
 	if props.Height != nil {
 		styles.Height = *props.Height
 		styles.Height.Source = Default
 		styles.setProperties[string(HeightProp)] = Default
 	}
-
 	if props.MinWidth != nil {
 		styles.MinWidth = *props.MinWidth
 		styles.MinWidth.Source = Default
 		styles.setProperties[string(MinWidthProp)] = Default
 	}
-
-	// Apply other properties...
 	if props.FontFamily != nil {
 		styles.FontFamily = *props.FontFamily
 		styles.setProperties[string(FontFamilyProp)] = Default
 	}
-
 	if props.FontSize != nil {
 		styles.FontSize = *props.FontSize
 		styles.FontSize.Source = Default
 		styles.setProperties[string(FontSizeProp)] = Default
 	}
-
 	if props.Color != nil {
 		styles.Color = *props.Color
 		styles.setProperties[string(ColorProp)] = Default
 	}
-
 	if props.Background != nil {
 		styles.Background = *props.Background
 		styles.setProperties[string(BackgroundProp)] = Default
+	}
+	if props.FlexDirection != nil {
+		styles.FlexDirection = *props.FlexDirection
+		styles.setProperties[string(FlexDirectionProp)] = Default
+	}
+	if props.Margin != nil {
+		styles.Margin = *props.Margin
+		styles.setProperties[string(MarginProp)] = Default
+	}
+	if props.Padding != nil {
+		styles.Padding = *props.Padding
+		styles.setProperties[string(PaddingProp)] = Default
+	}
+	if props.Border != nil {
+		styles.Border = *props.Border
+		styles.setProperties[string(BorderProp)] = Default
+	}
+	if props.BorderRadius != nil {
+		styles.BorderRadius = *props.BorderRadius
+		styles.setProperties[string(BorderRadiusProp)] = Default
 	}
 
 	return styles
@@ -342,4 +355,12 @@ func parseStyleValue(value interface{}) StyleValue {
 		return StyleValue{Type: PIXEL, Value: px, Source: Explicit}
 	}
 	return StyleValue{Type: AUTO, Value: 0, Source: Explicit}
+}
+
+func (b BorderStyle) CanDisplay() bool {
+	return b.Style != "none" && b.Width.IsNonZero()
+}
+
+func (e EdgeInsets) IsNonZero() bool {
+	return (e.Top != 0 || e.Bottom != 0 || e.Right != 0 || e.Left != 0)
 }

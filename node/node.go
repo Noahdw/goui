@@ -14,6 +14,10 @@ type Node interface {
 	FontSize(value interface{}) Node
 	Color(value string) Node
 	Background(value string) Node
+	Border(value string) Node
+	BorderWidth(value interface{}) Node
+	BorderRadius(value interface{}) Node
+
 	// ... other style methods
 
 	// Structure methods
@@ -63,9 +67,10 @@ type Constraints struct {
 type RenderContext interface {
 	// Drawing methods would go here
 	Clear()
-	DrawBackground(bounds Rect, color Color)
+	DrawBackground(bounds Rect, styles Styles)
 	DrawBorders(bounds Rect, border BorderStyle)
 	DrawText(text string, bounds Rect, styles Styles)
+	DrawTexture(sourceURL string, bounds Rect)
 	ClipRect() Rect
 	Present()
 }
@@ -94,6 +99,25 @@ func (n *BaseNode) Padding(value interface{}) Node {
 	p := parseMarginPadding(value)
 	n.styles.Padding = p
 	n.styles.setProperties[string(PaddingProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Border(value string) Node {
+	n.styles.Border.Style = value
+	n.styles.setProperties[string(BorderProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) BorderWidth(value interface{}) Node {
+	n.styles.Border.Width = parseMarginPadding(value)
+	n.styles.setProperties[string(BorderProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) BorderRadius(value interface{}) Node {
+	m := parseMarginPadding(value)
+	n.styles.BorderRadius = m
+	n.styles.setProperties[string(BorderRadiusProp)] = Explicit
 	return n
 }
 
@@ -137,10 +161,6 @@ func parseMarginPadding(value interface{}) EdgeInsets {
 
 // Helper to parse color values
 func parseColor(value string) Color {
-	if value == "transparent" {
-		return Transparent
-	}
-
 	// Handle named colors
 	switch value {
 	case "black":
@@ -161,6 +181,8 @@ func parseColor(value string) Color {
 		return Magenta
 	case "gray":
 		return Gray
+	case "transparent":
+		return Transparent
 	}
 
 	// Handle hex colors
@@ -396,10 +418,10 @@ func (n *BaseNode) GetFinalSize() Size {
 
 func (n *BaseNode) Paint(ctx RenderContext) {
 	// Draw this node's background
-	ctx.DrawBackground(n.finalBounds, n.styles.Background)
+	ctx.DrawBackground(n.finalBounds, n.styles)
 
 	// Draw borders if needed
-	if n.styles.Border.Style != "none" {
+	if n.styles.Border.CanDisplay() {
 		ctx.DrawBorders(n.finalBounds, n.styles.Border)
 	}
 
@@ -430,14 +452,33 @@ func (n *TextNode) MeasurePreferred(ctx RenderContext) Size {
 
 func (n *TextNode) Paint(ctx RenderContext) {
 	// Draw background and border first
-	ctx.DrawBackground(n.finalBounds, n.styles.Background)
+	ctx.DrawBackground(n.finalBounds, n.styles)
 
-	if n.styles.Border.Style != "none" {
+	// Draw borders if needed
+	if n.styles.Border.CanDisplay() {
 		ctx.DrawBorders(n.finalBounds, n.styles.Border)
 	}
 
 	// Then draw the text
 	ctx.DrawText(n.text, n.finalBounds, n.styles)
+}
+
+type ImageNode struct {
+	BaseNode
+	sourceURL string
+}
+
+func (n *ImageNode) Paint(ctx RenderContext) {
+	// Draw background and border first
+	ctx.DrawBackground(n.finalBounds, n.styles)
+
+	// Draw borders if needed
+	if n.styles.Border.CanDisplay() {
+		ctx.DrawBorders(n.finalBounds, n.styles.Border)
+	}
+
+	// Then draw the text
+	ctx.DrawTexture(n.sourceURL, n.finalBounds)
 }
 
 // Helper function to clamp a value between min and max

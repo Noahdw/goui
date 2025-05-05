@@ -65,3 +65,14 @@ func Layout(direction string, children ...Node) Node {
 	node.AddChildren(children...)
 	return node
 }
+
+func Image(sourceURL string) Node {
+	node := &ImageNode{
+		BaseNode: BaseNode{
+			nodeType: "image",
+			styles:   NewStyles(StyleProps{}),
+		},
+		sourceURL: sourceURL,
+	}
+	return node
+}

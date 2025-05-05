@@ -6,7 +6,8 @@ import (
 
 // RaylibRenderContext implements the RenderContext interface using Raylib
 type RaylibRenderContext struct {
-	clipRect Rect
+	clipRect   Rect
+	textureMap map[string]rl.Texture2D
 }
 
 // NewRaylibRenderContext creates a new render context using Raylib
@@ -19,6 +20,7 @@ func NewRaylibRenderContext() *RaylibRenderContext {
 				Height: float64(rl.GetScreenHeight()),
 			},
 		},
+		textureMap: make(map[string]rl.Texture2D),
 	}
 }
 
@@ -28,19 +30,30 @@ func (r *RaylibRenderContext) Clear() {
 }
 
 // DrawBackground draws a rectangle with the specified color
-func (r *RaylibRenderContext) DrawBackground(bounds Rect, color Color) {
-	rl.DrawRectangle(
-		int32(bounds.Position.X),
-		int32(bounds.Position.Y),
-		int32(bounds.Size.Width),
-		int32(bounds.Size.Height),
-		rl.Color{
-			R: color.R,
-			G: color.G,
-			B: color.B,
-			A: color.A,
-		},
-	)
+func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles) {
+	color := rl.Color{
+		R: styles.Background.R,
+		G: styles.Background.G,
+		B: styles.Background.B,
+		A: styles.Background.A,
+	}
+	if styles.BorderRadius.IsNonZero() {
+		rect := rl.Rectangle{
+			X:      float32(bounds.Position.X),
+			Y:      float32(bounds.Position.Y),
+			Width:  float32(bounds.Size.Width),
+			Height: float32(bounds.Size.Height),
+		}
+		rl.DrawRectangleRounded(rect, float32(styles.BorderRadius.Top), 60, color)
+	} else {
+		rl.DrawRectangle(
+			int32(bounds.Position.X),
+			int32(bounds.Position.Y),
+			int32(bounds.Size.Width),
+			int32(bounds.Size.Height),
+			color,
+		)
+	}
 }
 
 // DrawBorders draws borders with the specified style
@@ -147,6 +160,16 @@ func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles) 
 			A: styles.Color.A,
 		},
 	)
+}
+
+func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds Rect) {
+	texture, has := r.textureMap[sourceURL]
+	if !has {
+		texture = rl.LoadTexture(sourceURL)
+		r.textureMap[sourceURL] = texture
+	}
+
+	rl.DrawTexture(texture, int32(bounds.Position.X), int32(bounds.Position.Y), rl.White)
 }
 
 // ClipRect returns the current clipping rectangle
