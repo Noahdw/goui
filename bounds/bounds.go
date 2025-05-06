@@ -22,36 +22,3 @@ func (b *Bounds) IsPoint() bool {
 func (b *Bounds) BoundingRect() *Bounds {
 	return b
 }
-
-// Intersects - Checks if a Bounds object intersects with another Bounds
-func (b *Bounds) Intersects(a Bounds) bool {
-
-	aMaxX := a.X + a.Width
-	aMaxY := a.Y + a.Height
-	bMaxX := b.X + b.Width
-	bMaxY := b.Y + b.Height
-
-	// a is left of b
-	if aMaxX < b.X {
-		return false
-	}
-
-	// a is right of b
-	if a.X > bMaxX {
-		return false
-	}
-
-	// a is above b
-	if aMaxY < b.Y {
-		return false
-	}
-
-	// a is below b
-	if a.Y > bMaxY {
-		return false
-	}
-
-	// The two overlap
-	return true
-
-}

@@ -73,3 +73,8 @@ func Rect(children ...n.Node) n.Node {
 	node.AddChildren(children...)
 	return &node
 }
+
+func OnEvent(eventType string, fn func(n.Event)) n.Node {
+	node := n.NewBaseNode("rect", n.NewStyles(n.StyleProps{}))
+	return n.NewEventNode(node, eventType, fn)
+}

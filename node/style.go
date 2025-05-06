@@ -159,6 +159,7 @@ type Styles struct {
 
 	// Track which properties were explicitly set
 	setProperties map[string]StyleSource
+	finalOpacity  float64
 }
 
 // StyleProps is used for initializing styles
@@ -269,6 +270,7 @@ func NewStyles(props StyleProps) Styles {
 		Opacity:      1.0,
 
 		setProperties: make(map[string]StyleSource),
+		finalOpacity:  1.0,
 	}
 
 	// Apply any properties passed in

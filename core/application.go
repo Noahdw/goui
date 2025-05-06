@@ -58,6 +58,7 @@ func (app *Application) Run() {
 
 func initRaylib(title string, width, height int) {
 	rl.SetConfigFlags(rl.FlagMsaa4xHint)
+	rl.SetConfigFlags(rl.FlagWindowResizable)
 	rl.SetTargetFPS(120)
 	rl.InitWindow(int32(width), int32(height), title)
 }

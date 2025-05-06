@@ -27,8 +27,13 @@ type Node interface {
 
 	// Structure methods
 	AddChildren(children ...Node)
+	Children() []Node
 	GetType() string
 	GetStyles() Styles
+	Intersects(node Node) bool
+	Parent() Node
+	SetParent(parent Node)
+	HandleMouse(event MouseEvent) EventHandleState
 
 	// Layout methods
 	ResolveStyles(parentStyles Styles) Styles
@@ -37,22 +42,29 @@ type Node interface {
 	ArrangeChildren(ctx RenderContext, bounds Rect)
 	Paint(ctx RenderContext)
 	GetFinalSize() Size
+	GetFinalBounds() Rect
 }
 
 type BaseNode struct {
-	nodeType      string
-	children      []Node
-	styles        Styles
-	finalSize     Size
-	finalBounds   Rect
-	preferredSize Size
-	finalOpacity  float64
+	nodeType       string
+	parent         Node
+	children       []Node
+	styles         Styles
+	finalSize      Size
+	finalBounds    Rect
+	preferredSize  Size
+	finalOpacity   float64
+	eventCallbacks map[string]func(Event)
+}
+
+type Event struct {
 }
 
 func NewBaseNode(nodeType string, styles Styles) BaseNode {
 	return BaseNode{
-		nodeType: nodeType,
-		styles:   styles,
+		nodeType:       nodeType,
+		styles:         styles,
+		eventCallbacks: make(map[string]func(Event)),
 	}
 }
 
@@ -81,10 +93,10 @@ type Constraints struct {
 type RenderContext interface {
 	// Drawing methods would go here
 	Clear()
-	DrawBackground(bounds Rect, styles Styles)
-	DrawBorders(bounds Rect, styles Styles)
-	DrawText(text string, bounds Rect, styles Styles)
-	DrawTexture(sourceURL string, bounds Rect, styles Styles)
+	DrawBackground(bounds Rect, styles Styles, opacity float64)
+	DrawBorders(bounds Rect, styles Styles, opacity float64)
+	DrawText(text string, bounds Rect, styles Styles, opacity float64)
+	DrawTexture(sourceURL string, bounds Rect, styles Styles, opacity float64)
 	ClipRect() Rect
 	LoadTexture(sourceURL string) rl.Texture2D
 	Present()
@@ -234,9 +246,41 @@ func parseColor(value string) Color {
 	return Black
 }
 
+func (n *BaseNode) HandleMouse(event MouseEvent) EventHandleState {
+	if event, has := n.eventCallbacks["click"]; has {
+		event(Event{})
+		return Handled
+	}
+	return Propogate
+}
+
+func (n *BaseNode) Parent() Node {
+	return n.parent
+}
+
+func (n *BaseNode) SetParent(parent Node) {
+	n.parent = parent
+}
+
 // Structure methods
 func (n *BaseNode) AddChildren(children ...Node) {
-	n.children = append(n.children, children...)
+	// We catch the event nodes being added and rather than add them as children to this node,
+	// we filter them out and incorporate their callbacks into this node.
+	// Seems better than polluting the tree with otherwise useless nodes.
+	var finalChildren []Node
+	for _, child := range children {
+		if eventNode, ok := child.(*EventNode); ok {
+			n.eventCallbacks[eventNode.eventType] = eventNode.callback
+		} else {
+			child.SetParent(n)
+			finalChildren = append(finalChildren, child)
+		}
+	}
+	n.children = append(n.children, finalChildren...)
+}
+
+func (n *BaseNode) Children() []Node {
+	return n.children
 }
 
 func (n *BaseNode) GetType() string {
@@ -296,7 +340,8 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 		}
 	}
 
-	n.finalOpacity = resolvedStyles.Opacity * parentStyles.Opacity
+	resolvedStyles.finalOpacity = resolvedStyles.Opacity * parentStyles.finalOpacity
+	n.finalOpacity = resolvedStyles.finalOpacity
 
 	// Apply the same process to all children
 	for _, child := range n.children {
@@ -452,13 +497,17 @@ func (n *BaseNode) GetFinalSize() Size {
 	return n.finalSize
 }
 
+func (n *BaseNode) GetFinalBounds() Rect {
+	return n.finalBounds
+}
+
 func (n *BaseNode) Paint(ctx RenderContext) {
 	// Draw this node's background
-	ctx.DrawBackground(n.finalBounds, n.styles)
+	ctx.DrawBackground(n.finalBounds, n.styles, n.finalOpacity)
 
 	// Draw borders if needed
 	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles)
+		ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
 	}
 
 	// Draw all children
@@ -495,15 +544,15 @@ func (n *TextNode) MeasurePreferred(ctx RenderContext) Size {
 
 func (n *TextNode) Paint(ctx RenderContext) {
 	// Draw background and border first
-	ctx.DrawBackground(n.finalBounds, n.styles)
+	ctx.DrawBackground(n.finalBounds, n.styles, n.finalOpacity)
 
 	// Draw borders if needed
 	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles)
+		ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
 	}
 
 	// Then draw the text
-	ctx.DrawText(n.text, n.finalBounds, n.styles)
+	ctx.DrawText(n.text, n.finalBounds, n.styles, n.finalOpacity)
 }
 
 type ImageNode struct {
@@ -519,17 +568,32 @@ func NewImageNode(baseNode BaseNode, sourceURL string) Node {
 	return &imageNode
 }
 
+type EventNode struct {
+	BaseNode
+	callback  func(Event)
+	eventType string
+}
+
+func NewEventNode(baseNode BaseNode, eventType string, callback func(Event)) Node {
+	eventNode := EventNode{
+		BaseNode:  baseNode,
+		callback:  callback,
+		eventType: eventType,
+	}
+	return &eventNode
+}
+
 func (n *ImageNode) Paint(ctx RenderContext) {
 	// Draw background and border first
-	ctx.DrawBackground(n.finalBounds, n.styles)
+	ctx.DrawBackground(n.finalBounds, n.styles, n.finalOpacity)
 
 	// Draw borders if needed
 	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles)
+		ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
 	}
 
 	// Then draw the text
-	ctx.DrawTexture(n.sourceURL, n.finalBounds, n.styles)
+	ctx.DrawTexture(n.sourceURL, n.finalBounds, n.styles, n.finalOpacity)
 }
 
 func (n *ImageNode) MeasurePreferred(ctx RenderContext) Size {
@@ -550,4 +614,40 @@ func clamp(value, min, max float64) float64 {
 		return max
 	}
 	return value
+}
+
+func (b *BaseNode) Intersects(node Node) bool {
+	return b.finalBounds.Intersects(node.GetFinalBounds())
+}
+
+// Intersects - Checks if a Bounds object intersects with another Bounds
+func (r *Rect) Intersects(node Rect) bool {
+
+	aMaxX := r.Position.X + r.Size.Width
+	aMaxY := r.Position.Y + r.Size.Height
+	bMaxX := node.Position.X + node.Size.Width
+	bMaxY := node.Position.Y + node.Size.Height
+
+	// a is left of b
+	if aMaxX < node.Position.X {
+		return false
+	}
+
+	// a is right of b
+	if r.Position.X > bMaxX {
+		return false
+	}
+
+	// a is above b
+	if aMaxY < node.Position.Y {
+		return false
+	}
+
+	// a is below b
+	if r.Position.Y > bMaxY {
+		return false
+	}
+
+	// The two overlap
+	return true
 }

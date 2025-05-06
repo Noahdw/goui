@@ -30,12 +30,12 @@ func (r *RaylibRenderContext) Clear() {
 }
 
 // DrawBackground draws a rectangle with the specified color
-func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles) {
+func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles, opacity float64) {
 	color := rl.Color{
 		R: styles.Background.R,
 		G: styles.Background.G,
 		B: styles.Background.B,
-		A: NormalizedFloatToUint8(styles.Opacity),
+		A: NormalizedFloatToUint8(opacity),
 	}
 	if styles.BorderRadius.IsNonZero() {
 		rect := rl.Rectangle{
@@ -57,7 +57,7 @@ func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles) {
 }
 
 // DrawBorders draws borders with the specified style
-func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles) {
+func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles, opacity float64) {
 	// Top border
 	border := styles.Border
 	if border.Width.Top > 0 {
@@ -70,7 +70,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: NormalizedFloatToUint8(styles.Opacity),
+				A: NormalizedFloatToUint8(opacity),
 			},
 		)
 	}
@@ -86,7 +86,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: NormalizedFloatToUint8(styles.Opacity),
+				A: NormalizedFloatToUint8(opacity),
 			},
 		)
 	}
@@ -102,7 +102,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: NormalizedFloatToUint8(styles.Opacity),
+				A: NormalizedFloatToUint8(opacity),
 			},
 		)
 	}
@@ -118,14 +118,14 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: NormalizedFloatToUint8(styles.Opacity),
+				A: NormalizedFloatToUint8(opacity),
 			},
 		)
 	}
 }
 
 // DrawText draws text with the specified styles
-func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles) {
+func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles, opacity float64) {
 	fontSize := int32(styles.FontSize.Value)
 
 	// Calculate text dimensions for alignment
@@ -158,15 +158,15 @@ func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles) 
 			R: styles.Color.R,
 			G: styles.Color.G,
 			B: styles.Color.B,
-			A: NormalizedFloatToUint8(styles.Opacity),
+			A: NormalizedFloatToUint8(opacity),
 		},
 	)
 }
 
-func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds Rect, styles Styles) {
+func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds Rect, styles Styles, opacity float64) {
 	texture := r.LoadTexture(sourceURL)
 	color := rl.White
-	color.A = NormalizedFloatToUint8(styles.Opacity)
+	color.A = NormalizedFloatToUint8(opacity)
 	rl.DrawTexture(texture, int32(bounds.Position.X), int32(bounds.Position.Y), color)
 }
 
