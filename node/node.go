@@ -46,6 +46,7 @@ type BaseNode struct {
 	finalSize     Size
 	finalBounds   Rect
 	preferredSize Size
+	finalOpacity  float64
 }
 
 func NewBaseNode(nodeType string, styles Styles) BaseNode {
@@ -295,6 +296,8 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 		}
 	}
 
+	n.finalOpacity = resolvedStyles.Opacity * parentStyles.Opacity
+
 	// Apply the same process to all children
 	for _, child := range n.children {
 		child.ResolveStyles(resolvedStyles)
@@ -307,6 +310,10 @@ func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
 	// For leaf nodes, calculate intrinsic size
 	if len(n.children) == 0 {
 		return Size{0, 0} // Override in specific node types
+	}
+
+	if n.styles.Opacity == 0 {
+		return Size{0, 0} // Dont render hidden objects
 	}
 
 	// For container nodes, measure all children first

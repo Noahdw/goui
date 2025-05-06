@@ -13,7 +13,7 @@ func main() {
 			widget1(),
 			Rect(
 				Image("figure.png"),
-			).Background("blue").Padding(5).BorderRadius(.3),
+			).Background("blue").Padding(5).BorderRadius(.3).Opacity(.5),
 		).Border("solid").BorderWidth(3).Background("red").Padding(32).Margin(4).Opacity(.5)
 
 	// Create and run the application
