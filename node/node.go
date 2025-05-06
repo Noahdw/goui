@@ -1,8 +1,11 @@
 package node
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
+
+	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type Node interface {
@@ -13,8 +16,10 @@ type Node interface {
 	Padding(value interface{}) Node
 	FontSize(value interface{}) Node
 	Color(value string) Node
+	Opacity(value float64) Node
 	Background(value string) Node
 	Border(value string) Node
+	Flex(value string) Node
 	BorderWidth(value interface{}) Node
 	BorderRadius(value interface{}) Node
 
@@ -35,11 +40,19 @@ type Node interface {
 }
 
 type BaseNode struct {
-	nodeType    string
-	children    []Node
-	styles      Styles
-	finalSize   Size
-	finalBounds Rect
+	nodeType      string
+	children      []Node
+	styles        Styles
+	finalSize     Size
+	finalBounds   Rect
+	preferredSize Size
+}
+
+func NewBaseNode(nodeType string, styles Styles) BaseNode {
+	return BaseNode{
+		nodeType: nodeType,
+		styles:   styles,
+	}
 }
 
 // Size represents width and height
@@ -68,10 +81,11 @@ type RenderContext interface {
 	// Drawing methods would go here
 	Clear()
 	DrawBackground(bounds Rect, styles Styles)
-	DrawBorders(bounds Rect, border BorderStyle)
+	DrawBorders(bounds Rect, styles Styles)
 	DrawText(text string, bounds Rect, styles Styles)
-	DrawTexture(sourceURL string, bounds Rect)
+	DrawTexture(sourceURL string, bounds Rect, styles Styles)
 	ClipRect() Rect
+	LoadTexture(sourceURL string) rl.Texture2D
 	Present()
 }
 
@@ -121,6 +135,12 @@ func (n *BaseNode) BorderRadius(value interface{}) Node {
 	return n
 }
 
+func (n *BaseNode) Flex(value string) Node {
+	n.styles.FlexDirection = value
+	n.styles.setProperties[string(FlexDirectionProp)] = Explicit
+	return n
+}
+
 func (n *BaseNode) FontSize(value interface{}) Node {
 	n.styles.FontSize = parseStyleValue(value)
 	n.styles.setProperties[string(FontSizeProp)] = Explicit
@@ -136,6 +156,12 @@ func (n *BaseNode) Color(value string) Node {
 func (n *BaseNode) Background(value string) Node {
 	n.styles.Background = parseColor(value)
 	n.styles.setProperties[string(BackgroundProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) Opacity(value float64) Node {
+	n.styles.Opacity = value
+	n.styles.setProperties[string(OpacityProp)] = Explicit
 	return n
 }
 
@@ -228,7 +254,7 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 	// For inheritable properties, check if they're set in this node
 	// If not, inherit from parent
 	inheritableProps := []StyleProperty{
-		FontFamilyProp, FontSizeProp, ColorProp, LineHeightProp, BackgroundProp,
+		FontFamilyProp, FontSizeProp, ColorProp, LineHeightProp, BackgroundProp, OpacityProp,
 	}
 
 	for _, prop := range inheritableProps {
@@ -253,6 +279,9 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 				resolvedStyles.setProperties[string(prop)] = Inherited
 			case ColorProp:
 				resolvedStyles.Color = parentStyles.Color
+				resolvedStyles.setProperties[string(prop)] = Inherited
+			case OpacityProp:
+				resolvedStyles.Opacity = parentStyles.Opacity
 				resolvedStyles.setProperties[string(prop)] = Inherited
 			case BackgroundProp:
 				resolvedStyles.Background = parentStyles.Background
@@ -318,14 +347,14 @@ func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
 	// Add padding
 	totalSize.Width += n.styles.Padding.Left + n.styles.Padding.Right
 	totalSize.Height += n.styles.Padding.Top + n.styles.Padding.Bottom
-
+	n.preferredSize = totalSize
 	return totalSize
 }
 
 func (n *BaseNode) Layout(ctx RenderContext, constraints Constraints) Size {
 	// Start with preferred size
-	preferredSize := n.MeasurePreferred(ctx)
-
+	preferredSize := n.preferredSize
+	fmt.Println(preferredSize.Width)
 	// Apply constraints to determine final size
 	finalSize := Size{
 		Width:  clamp(preferredSize.Width, constraints.MinWidth, constraints.MaxWidth),
@@ -422,7 +451,7 @@ func (n *BaseNode) Paint(ctx RenderContext) {
 
 	// Draw borders if needed
 	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles.Border)
+		ctx.DrawBorders(n.finalBounds, n.styles)
 	}
 
 	// Draw all children
@@ -435,6 +464,13 @@ func (n *BaseNode) Paint(ctx RenderContext) {
 type TextNode struct {
 	BaseNode
 	text string
+}
+
+func NewTextNode(baseNode BaseNode, text string) Node {
+	return &TextNode{
+		BaseNode: baseNode,
+		text:     text,
+	}
 }
 
 // Specialized implementation for TextNode
@@ -456,7 +492,7 @@ func (n *TextNode) Paint(ctx RenderContext) {
 
 	// Draw borders if needed
 	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles.Border)
+		ctx.DrawBorders(n.finalBounds, n.styles)
 	}
 
 	// Then draw the text
@@ -468,17 +504,34 @@ type ImageNode struct {
 	sourceURL string
 }
 
+func NewImageNode(baseNode BaseNode, sourceURL string) Node {
+	imageNode := ImageNode{
+		BaseNode:  baseNode,
+		sourceURL: sourceURL,
+	}
+	return &imageNode
+}
+
 func (n *ImageNode) Paint(ctx RenderContext) {
 	// Draw background and border first
 	ctx.DrawBackground(n.finalBounds, n.styles)
 
 	// Draw borders if needed
 	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles.Border)
+		ctx.DrawBorders(n.finalBounds, n.styles)
 	}
 
 	// Then draw the text
-	ctx.DrawTexture(n.sourceURL, n.finalBounds)
+	ctx.DrawTexture(n.sourceURL, n.finalBounds, n.styles)
+}
+
+func (n *ImageNode) MeasurePreferred(ctx RenderContext) Size {
+	texture := ctx.LoadTexture(n.sourceURL)
+	n.preferredSize = Size{
+		Width:  float64(texture.Width),
+		Height: float64(texture.Height),
+	}
+	return n.preferredSize
 }
 
 // Helper function to clamp a value between min and max

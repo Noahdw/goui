@@ -35,7 +35,7 @@ func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles) {
 		R: styles.Background.R,
 		G: styles.Background.G,
 		B: styles.Background.B,
-		A: styles.Background.A,
+		A: NormalizedFloatToUint8(styles.Opacity),
 	}
 	if styles.BorderRadius.IsNonZero() {
 		rect := rl.Rectangle{
@@ -44,7 +44,7 @@ func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles) {
 			Width:  float32(bounds.Size.Width),
 			Height: float32(bounds.Size.Height),
 		}
-		rl.DrawRectangleRounded(rect, float32(styles.BorderRadius.Top), 60, color)
+		rl.DrawRectangleRounded(rect, float32(styles.BorderRadius.Top), 50, color)
 	} else {
 		rl.DrawRectangle(
 			int32(bounds.Position.X),
@@ -57,8 +57,9 @@ func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles) {
 }
 
 // DrawBorders draws borders with the specified style
-func (r *RaylibRenderContext) DrawBorders(bounds Rect, border BorderStyle) {
+func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles) {
 	// Top border
+	border := styles.Border
 	if border.Width.Top > 0 {
 		rl.DrawRectangle(
 			int32(bounds.Position.X),
@@ -69,7 +70,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, border BorderStyle) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: border.Color.A,
+				A: NormalizedFloatToUint8(styles.Opacity),
 			},
 		)
 	}
@@ -85,7 +86,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, border BorderStyle) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: border.Color.A,
+				A: NormalizedFloatToUint8(styles.Opacity),
 			},
 		)
 	}
@@ -101,7 +102,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, border BorderStyle) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: border.Color.A,
+				A: NormalizedFloatToUint8(styles.Opacity),
 			},
 		)
 	}
@@ -117,7 +118,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, border BorderStyle) {
 				R: border.Color.R,
 				G: border.Color.G,
 				B: border.Color.B,
-				A: border.Color.A,
+				A: NormalizedFloatToUint8(styles.Opacity),
 			},
 		)
 	}
@@ -157,19 +158,25 @@ func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles) 
 			R: styles.Color.R,
 			G: styles.Color.G,
 			B: styles.Color.B,
-			A: styles.Color.A,
+			A: NormalizedFloatToUint8(styles.Opacity),
 		},
 	)
 }
 
-func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds Rect) {
+func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds Rect, styles Styles) {
+	texture := r.LoadTexture(sourceURL)
+	color := rl.White
+	color.A = NormalizedFloatToUint8(styles.Opacity)
+	rl.DrawTexture(texture, int32(bounds.Position.X), int32(bounds.Position.Y), color)
+}
+
+func (r *RaylibRenderContext) LoadTexture(sourceURL string) rl.Texture2D {
 	texture, has := r.textureMap[sourceURL]
 	if !has {
 		texture = rl.LoadTexture(sourceURL)
 		r.textureMap[sourceURL] = texture
 	}
-
-	rl.DrawTexture(texture, int32(bounds.Position.X), int32(bounds.Position.Y), rl.White)
+	return texture
 }
 
 // ClipRect returns the current clipping rectangle
@@ -188,4 +195,16 @@ func (r *RaylibRenderContext) SetClipRect(rect Rect) {
 func (r *RaylibRenderContext) Present() {
 	// In Raylib, the rendering is presented when EndDrawing() is called
 	// This would typically be handled outside this context in the main loop
+}
+
+func NormalizedFloatToUint8(value float64) uint8 {
+	// Clamp value between 0.0 and 1.0
+	if value < 0.0 {
+		value = 0.0
+	} else if value > 1.0 {
+		value = 1.0
+	}
+
+	// Scale to 0-255 range and convert to uint8
+	return uint8(value * 255.0)
 }
