@@ -1,21 +1,22 @@
-package node
+package core
 
 import (
 	rl "github.com/gen2brain/raylib-go/raylib"
+	"github.com/noahdw/goui/node"
 )
 
 // RaylibRenderContext implements the RenderContext interface using Raylib
 type RaylibRenderContext struct {
-	clipRect   Rect
+	clipRect   node.Rect
 	textureMap map[string]rl.Texture2D
 }
 
 // NewRaylibRenderContext creates a new render context using Raylib
 func NewRaylibRenderContext() *RaylibRenderContext {
 	return &RaylibRenderContext{
-		clipRect: Rect{
-			Position: Point{0, 0},
-			Size: Size{
+		clipRect: node.Rect{
+			Position: node.Point{X: 0, Y: 0},
+			Size: node.Size{
 				Width:  float64(rl.GetScreenWidth()),
 				Height: float64(rl.GetScreenHeight()),
 			},
@@ -29,8 +30,8 @@ func (r *RaylibRenderContext) Clear() {
 	//rl.ClearBackground(rl.RayWhite)
 }
 
-// DrawBackground draws a rectangle with the specified color
-func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles, opacity float64) {
+// DrawBackground draws anode.Rectangle with the specified color
+func (r *RaylibRenderContext) DrawBackground(bounds node.Rect, styles node.Styles, opacity float64) {
 	color := rl.Color{
 		R: styles.Background.R,
 		G: styles.Background.G,
@@ -57,7 +58,7 @@ func (r *RaylibRenderContext) DrawBackground(bounds Rect, styles Styles, opacity
 }
 
 // DrawBorders draws borders with the specified style
-func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawBorders(bounds node.Rect, styles node.Styles, opacity float64) {
 	// Top border
 	border := styles.Border
 	if border.Width.Top > 0 {
@@ -125,7 +126,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds Rect, styles Styles, opacity fl
 }
 
 // DrawText draws text with the specified styles
-func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawText(text string, bounds node.Rect, styles node.Styles, opacity float64) {
 	fontSize := int32(styles.FontSize.Value)
 
 	// Calculate text dimensions for alignment
@@ -163,7 +164,7 @@ func (r *RaylibRenderContext) DrawText(text string, bounds Rect, styles Styles, 
 	)
 }
 
-func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds Rect, styles Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds node.Rect, styles node.Styles, opacity float64) {
 	texture := r.LoadTexture(sourceURL)
 	color := rl.White
 	color.A = NormalizedFloatToUint8(opacity)
@@ -179,15 +180,15 @@ func (r *RaylibRenderContext) LoadTexture(sourceURL string) rl.Texture2D {
 	return texture
 }
 
-// ClipRect returns the current clipping rectangle
-func (r *RaylibRenderContext) ClipRect() Rect {
+// ClipRect returns the current clippingnode.Rectangle
+func (r *RaylibRenderContext) ClipRect() node.Rect {
 	return r.clipRect
 }
 
-// SetClipRect sets the current clipping rectangle
-func (r *RaylibRenderContext) SetClipRect(rect Rect) {
+// SetClipRect sets the current clippingnode.Rectangle
+func (r *RaylibRenderContext) SetClipRect(rect node.Rect) {
 	r.clipRect = rect
-	// Note: Raylib doesn't directly support clipping rectangles
+	// Note: Raylib doesn't directly support clippingnode.Rectangles
 	// You would need to implement scissoring using OpenGL if needed
 }
 

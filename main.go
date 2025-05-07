@@ -33,8 +33,8 @@ func widget1() n.Node {
 			Text("My Application"),
 			OnEvent("click", doSomething),
 		).Color("blue").FontSize(30).Background("white").Margin(40),
-		H2(Text("My Application 2")).
-			Color("black").
-			FontSize(20).Background("red").Opacity(.7),
+		H2(
+			Text("My Application 2"),
+		).Color("black").FontSize(20).Background("red").Opacity(.7),
 	).Background("gray").Padding(20).BorderRadius(.3).Border("solid").Flex("column")
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	rl "github.com/gen2brain/raylib-go/raylib"
+
 	"github.com/noahdw/goui/node"
 )
 
@@ -35,7 +36,7 @@ func (app *Application) Run() {
 	defer closeRaylib()
 
 	// Create the render context
-	context := node.NewRaylibRenderContext()
+	context := NewRaylibRenderContext()
 
 	// Create the render engine
 	app.engine = NewRenderEngine(app.root, context, float64(app.width), float64(app.height))
