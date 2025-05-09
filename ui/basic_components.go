@@ -100,3 +100,25 @@ func OnEvent(eventType string, fn func(n.UIEvent)) n.Node {
 	node := n.NewBaseNode("event", n.NewStyles(n.StyleProps{}))
 	return n.NewEventNode(node, n.UIEventType(eventType), fn)
 }
+
+// StyleOnEvent creates a style change handler that will be absorbed by its parent.
+// The style handler will be registered with the parent node and will not appear in the node tree.
+// This allows for a declarative approach to style management where style changes are treated as first-class nodes.
+//
+// Example:
+//   Rect(
+//     StyleOnEvent("hover", &n.StyleProps{
+//       Background: &n.Color{240, 240, 240, 255},
+//       Scale: &1.1,
+//     }),
+//     Text("Hover me"),
+//   )
+func StyleOnEvent(state string, style *n.StyleProps) n.Node {
+	// Create a base node that will be absorbed by its parent
+	baseNode := n.NewBaseNode("style_handler", n.NewStyles(n.StyleProps{}))
+	node := &baseNode
+	stateStyles := n.NewStyles(*style)
+	styles := node.GetStyles()
+	styles.AddStateStyle(state, &stateStyles)
+	return node
+}

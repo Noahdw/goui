@@ -22,12 +22,14 @@ type Node interface {
 	Flex(value string) Node
 	BorderWidth(value interface{}) Node
 	BorderRadius(value interface{}) Node
+	AlignItems(value string) Node
+	FontWeight(value interface{}) Node
 
 	// Structure methods
 	AddChildren(children ...Node)
 	Children() []Node
 	GetType() string
-	GetStyles() Styles
+	GetStyles() *Styles
 	Intersects(node Node) bool
 	Parent() Node
 	SetParent(parent Node)
@@ -41,6 +43,30 @@ type Node interface {
 	Paint(ctx RenderContext)
 	GetFinalSize() Size
 	GetFinalBounds() Rect
+
+	// State management methods
+	ID() string
+	SetID(id string) Node
+	GetState() NodeState
+	SetState(state string, value bool) Node
+	OnStateChange(state string, callback func(StateChange)) Node
+	NotifyStateChange(state string, value bool)
+}
+
+// NodeState represents the current state of a node
+type NodeState struct {
+	IsHovered    bool
+	IsActive     bool
+	IsFocused    bool
+	IsDisabled   bool
+	CustomStates map[string]bool
+}
+
+// StateChange represents a state change event
+type StateChange struct {
+	NodeID string
+	State  string
+	Value  bool
 }
 
 type BaseNode struct {
@@ -53,6 +79,9 @@ type BaseNode struct {
 	preferredSize  Size
 	finalOpacity   float64
 	eventCallbacks map[UIEventType]func(UIEvent)
+	id             string
+	state          NodeState
+	stateListeners map[string][]func(StateChange)
 }
 
 type Event struct {
@@ -176,6 +205,18 @@ func (n *BaseNode) Opacity(value float64) Node {
 	return n
 }
 
+func (n *BaseNode) AlignItems(value string) Node {
+	n.styles.AlignItems = value
+	n.styles.setProperties[string(AlignItemsProp)] = Explicit
+	return n
+}
+
+func (n *BaseNode) FontWeight(value interface{}) Node {
+	n.styles.FontWeight = parseStyleValue(value)
+	n.styles.setProperties[string(FontWeightProp)] = Explicit
+	return n
+}
+
 // Helper to parse margin/padding values
 func parseMarginPadding(value interface{}) EdgeInsets {
 	switch v := value.(type) {
@@ -278,14 +319,15 @@ func (n *BaseNode) GetType() string {
 	return n.nodeType
 }
 
-func (n *BaseNode) GetStyles() Styles {
-	return n.styles
+// GetStyles returns a pointer to the node's styles
+func (n *BaseNode) GetStyles() *Styles {
+	return &n.styles
 }
 
 // Layout methods
 func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 	// Start with this node's styles
-	resolvedStyles := n.styles
+	resolvedStyles := *n.GetStyles()
 
 	// For inheritable properties, check if they're set in this node
 	// If not, inherit from parent
@@ -304,7 +346,6 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 		selfHasIt = (selfSource == Explicit)
 
 		if parentHasIt && !selfHasIt {
-
 			switch prop {
 			case FontFamilyProp:
 				resolvedStyles.FontFamily = parentStyles.FontFamily
@@ -327,7 +368,28 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 				resolvedStyles.LineHeight.Source = Inherited
 				resolvedStyles.setProperties[string(prop)] = Inherited
 			}
+		}
+	}
 
+	// Apply state-based styles
+	if n.state.IsHovered && resolvedStyles.StateStyles != nil {
+		if hoverStyle := resolvedStyles.StateStyles["hover"]; hoverStyle != nil {
+			applyStateStyle(&resolvedStyles, hoverStyle)
+		}
+	}
+	if n.state.IsActive && resolvedStyles.StateStyles != nil {
+		if activeStyle := resolvedStyles.StateStyles["active"]; activeStyle != nil {
+			applyStateStyle(&resolvedStyles, activeStyle)
+		}
+	}
+	if n.state.IsFocused && resolvedStyles.StateStyles != nil {
+		if focusStyle := resolvedStyles.StateStyles["focus"]; focusStyle != nil {
+			applyStateStyle(&resolvedStyles, focusStyle)
+		}
+	}
+	if n.state.IsDisabled && resolvedStyles.StateStyles != nil {
+		if disabledStyle := resolvedStyles.StateStyles["disabled"]; disabledStyle != nil {
+			applyStateStyle(&resolvedStyles, disabledStyle)
 		}
 	}
 
@@ -338,8 +400,46 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 	for _, child := range n.children {
 		child.ResolveStyles(resolvedStyles)
 	}
-	n.styles = resolvedStyles
+	*n.GetStyles() = resolvedStyles
 	return resolvedStyles
+}
+
+// applyStateStyle applies a state style variation to the base styles
+func applyStateStyle(base *Styles, state *Styles) {
+	// Apply all explicitly set properties from the state style
+	for prop, source := range state.setProperties {
+		if source == Explicit {
+			switch StyleProperty(prop) {
+			case WidthProp:
+				base.Width = state.Width
+			case HeightProp:
+				base.Height = state.Height
+			case MarginProp:
+				base.Margin = state.Margin
+			case PaddingProp:
+				base.Padding = state.Padding
+			case FontSizeProp:
+				base.FontSize = state.FontSize
+			case ColorProp:
+				base.Color = state.Color
+			case OpacityProp:
+				base.Opacity = state.Opacity
+			case BackgroundProp:
+				base.Background = state.Background
+			case BorderProp:
+				base.Border = state.Border
+			case BorderRadiusProp:
+				base.BorderRadius = state.BorderRadius
+			case FlexDirectionProp:
+				base.FlexDirection = state.FlexDirection
+			case AlignItemsProp:
+				base.AlignItems = state.AlignItems
+			case FontWeightProp:
+				base.FontWeight = state.FontWeight
+			}
+			base.setProperties[prop] = Explicit
+		}
+	}
 }
 
 func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
@@ -668,6 +768,22 @@ func (n *BaseNode) DispatchEvent(event UIEvent) {
 		event.Target = n
 	}
 
+	// Update states based on event type
+	switch event.Type {
+	case UIEnter:
+		n.SetState("hover", true)
+	case UILeave:
+		n.SetState("hover", false)
+	case UIPress:
+		n.SetState("active", true)
+	case UIRelease:
+		n.SetState("active", false)
+	case UIFocus:
+		n.SetState("focus", true)
+	case UIBlur:
+		n.SetState("focus", false)
+	}
+
 	// Call the handler if one exists
 	if handler, has := n.eventCallbacks[event.Type]; has {
 		handler(event)
@@ -679,5 +795,77 @@ func (n *BaseNode) DispatchEvent(event UIEvent) {
 	// Propagate to parent
 	if parent := n.parent; parent != nil {
 		parent.DispatchEvent(event)
+	}
+}
+
+// State management implementations for BaseNode
+func (n *BaseNode) ID() string {
+	return n.id
+}
+
+func (n *BaseNode) SetID(id string) Node {
+	n.id = id
+	return n
+}
+
+func (n *BaseNode) GetState() NodeState {
+	return n.state
+}
+
+func (n *BaseNode) SetState(state string, value bool) Node {
+	// Handle built-in states
+	switch state {
+	case "hover":
+		n.state.IsHovered = value
+	case "active":
+		n.state.IsActive = value
+	case "focus":
+		n.state.IsFocused = value
+	case "disabled":
+		n.state.IsDisabled = value
+	default:
+		// Handle custom states
+		if n.state.CustomStates == nil {
+			n.state.CustomStates = make(map[string]bool)
+		}
+		n.state.CustomStates[state] = value
+	}
+
+	// Notify listeners
+	n.NotifyStateChange(state, value)
+	return n
+}
+
+func (n *BaseNode) OnStateChange(state string, callback func(StateChange)) Node {
+	if n.stateListeners == nil {
+		n.stateListeners = make(map[string][]func(StateChange))
+	}
+	n.stateListeners[state] = append(n.stateListeners[state], callback)
+	return n
+}
+
+func (n *BaseNode) NotifyStateChange(state string, value bool) {
+	if n.stateListeners == nil {
+		return
+	}
+
+	change := StateChange{
+		NodeID: n.id,
+		State:  state,
+		Value:  value,
+	}
+
+	// Notify all listeners for this state
+	if listeners, ok := n.stateListeners[state]; ok {
+		for _, listener := range listeners {
+			listener(change)
+		}
+	}
+
+	// Also notify listeners for "all" state changes
+	if listeners, ok := n.stateListeners["all"]; ok {
+		for _, listener := range listeners {
+			listener(change)
+		}
 	}
 }

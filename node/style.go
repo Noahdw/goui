@@ -151,11 +151,8 @@ type Styles struct {
 	Shadow       ShadowStyle
 	Opacity      float64
 
-	// Interactive states
-	HoverStyles    *Styles
-	ActiveStyles   *Styles
-	FocusStyles    *Styles
-	DisabledStyles *Styles
+	// State-based style variations
+	StateStyles map[string]*Styles
 
 	// Track which properties were explicitly set
 	setProperties map[string]StyleSource
@@ -204,6 +201,7 @@ type StyleProps struct {
 	BorderRadius *EdgeInsets
 	Shadow       *ShadowStyle
 	Opacity      *float64
+	Scale        *float64
 }
 
 // Standard color definitions
@@ -365,4 +363,20 @@ func (b BorderStyle) CanDisplay() bool {
 
 func (e EdgeInsets) IsNonZero() bool {
 	return (e.Top != 0 || e.Bottom != 0 || e.Right != 0 || e.Left != 0)
+}
+
+// AddStateStyle adds a style variation for a specific state
+func (s *Styles) AddStateStyle(state string, style *Styles) {
+	if s.StateStyles == nil {
+		s.StateStyles = make(map[string]*Styles)
+	}
+	s.StateStyles[state] = style
+}
+
+// GetStateStyle returns the style variation for a specific state
+func (s *Styles) GetStateStyle(state string) *Styles {
+	if s.StateStyles == nil {
+		return nil
+	}
+	return s.StateStyles[state]
 }
