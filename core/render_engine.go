@@ -16,6 +16,10 @@ type RenderEngine struct {
 	camera        rl.Camera2D
 	hasAnimations bool
 	lastFoundObj  Node
+	focusedNode   Node // Currently focused node for keyboard events
+	pressedObj    Node // Node that was pressed, for click detection
+	pressX        float64
+	pressY        float64
 }
 
 // NewRenderEngine creates a new render engine
@@ -32,8 +36,25 @@ func NewRenderEngine(root Node, context RenderContext, width, height float64) *R
 	}
 }
 
-func (r *RenderEngine) RenderFrame() {
+// SetFocus sets the currently focused node
+func (r *RenderEngine) SetFocus(node Node) {
+	// Notify old focused node that it lost focus
+	if r.focusedNode != nil {
+		event := NewUIEvent(UIBlur, r.focusedNode)
+		r.focusedNode.DispatchEvent(event)
+	}
 
+	// Set new focus
+	r.focusedNode = node
+
+	// Notify new focused node
+	if node != nil {
+		event := NewUIEvent(UIFocus, node)
+		node.DispatchEvent(event)
+	}
+}
+
+func (r *RenderEngine) RenderFrame() {
 	mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), r.camera)
 	cursor := Rect{
 		Position: Point{
@@ -43,35 +64,77 @@ func (r *RenderEngine) RenderFrame() {
 	var foundObj = r.getObjUnderCursor(r.rootNode, cursor)
 	if foundObj != nil {
 		if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
-			event := NewMouseEvent(Pressed)
-			r.bubbleMouseEvent(event, foundObj)
+			// Store the pressed object and position for click detection
+			r.pressedObj = foundObj
+			r.pressX = float64(mouseWorldPos.X)
+			r.pressY = float64(mouseWorldPos.Y)
+
+			// Dispatch press event
+			event := NewUIMouseEvent(UIPress, foundObj, r.pressX, r.pressY)
+			foundObj.DispatchEvent(event)
+
+			// Set focus on press
+			r.SetFocus(foundObj)
 		}
 
 		if rl.IsMouseButtonDown(rl.MouseButtonLeft) {
-			event := NewMouseEvent(Down)
-			r.bubbleMouseEvent(event, foundObj)
+			event := NewUIMouseEvent(UIMove, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
+			foundObj.DispatchEvent(event)
 		}
 
 		if rl.IsMouseButtonReleased(rl.MouseButtonLeft) {
-			event := NewMouseEvent(Released)
-			r.bubbleMouseEvent(event, foundObj)
+			// Dispatch release event
+			event := NewUIMouseEvent(UIRelease, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
+			foundObj.DispatchEvent(event)
+
+			// If we released on the same object we pressed, it's a click
+			if r.pressedObj == foundObj {
+				// Calculate if the mouse moved too far during press (drag threshold)
+				dx := float64(mouseWorldPos.X) - r.pressX
+				dy := float64(mouseWorldPos.Y) - r.pressY
+				distance := dx*dx + dy*dy
+
+				// If the mouse didn't move too far, it's a click
+				if distance < 100 { // 10 pixels threshold
+					clickEvent := NewUIMouseEvent(UIClick, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
+					foundObj.DispatchEvent(clickEvent)
+				}
+			}
+
+			// Clear pressed state
+			r.pressedObj = nil
 		}
 
 		// Last frame we found a different object, so we know that the mouse both
-		// entered the found  object and exited the previous frames object.
+		// entered the found object and exited the previous frames object.
 		if foundObj != r.lastFoundObj {
-			event := NewMouseEvent(Entered)
-			r.bubbleMouseEvent(event, foundObj)
+			event := NewUIMouseEvent(UIEnter, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
+			foundObj.DispatchEvent(event)
 			if r.lastFoundObj != nil {
-				event := NewMouseEvent(Exited)
-				r.bubbleMouseEvent(event, r.lastFoundObj)
+				event := NewUIMouseEvent(UILeave, r.lastFoundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
+				r.lastFoundObj.DispatchEvent(event)
 			}
 			r.lastFoundObj = foundObj
 		}
 	} else if r.lastFoundObj != nil {
-		event := NewMouseEvent(Exited)
-		r.bubbleMouseEvent(event, r.lastFoundObj)
+		event := NewUIMouseEvent(UILeave, r.lastFoundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
+		r.lastFoundObj.DispatchEvent(event)
 		r.lastFoundObj = nil
+	}
+
+	// Handle keyboard events - only send to focused node
+	key := rl.GetKeyPressed()
+	if key != 0 && r.focusedNode != nil {
+		event := NewUIKeyboardEvent(UIKeyPress, r.focusedNode, int(key), rune(key))
+		r.focusedNode.DispatchEvent(event)
+	}
+
+	// Handle Tab key for focus navigation
+	if rl.IsKeyPressed(rl.KeyTab) && r.focusedNode != nil {
+		// TODO: Implement focus navigation logic
+		// This would involve finding the next focusable node in the tree
+		// For now, we'll just clear focus
+		r.SetFocus(nil)
 	}
 
 	// Check if layout needs recalculation
@@ -139,13 +202,4 @@ func (r *RenderEngine) getObjUnderCursor(node Node, cursor Rect) Node {
 		}
 	}
 	return foundObj
-}
-
-func (r *RenderEngine) bubbleMouseEvent(event MouseEvent, node Node) {
-	handleState := node.HandleMouse(event)
-	if handleState == Propogate {
-		if parent := node.Parent(); parent != nil {
-			r.bubbleMouseEvent(event, parent)
-		}
-	}
 }

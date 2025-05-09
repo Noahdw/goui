@@ -23,8 +23,6 @@ type Node interface {
 	BorderWidth(value interface{}) Node
 	BorderRadius(value interface{}) Node
 
-	// ... other style methods
-
 	// Structure methods
 	AddChildren(children ...Node)
 	Children() []Node
@@ -33,7 +31,7 @@ type Node interface {
 	Intersects(node Node) bool
 	Parent() Node
 	SetParent(parent Node)
-	HandleMouse(event MouseEvent) EventHandleState
+	DispatchEvent(event UIEvent)
 
 	// Layout methods
 	ResolveStyles(parentStyles Styles) Styles
@@ -54,7 +52,7 @@ type BaseNode struct {
 	finalBounds    Rect
 	preferredSize  Size
 	finalOpacity   float64
-	eventCallbacks map[string]func(Event)
+	eventCallbacks map[UIEventType]func(UIEvent)
 }
 
 type Event struct {
@@ -64,7 +62,7 @@ func NewBaseNode(nodeType string, styles Styles) BaseNode {
 	return BaseNode{
 		nodeType:       nodeType,
 		styles:         styles,
-		eventCallbacks: make(map[string]func(Event)),
+		eventCallbacks: make(map[UIEventType]func(UIEvent)),
 	}
 }
 
@@ -246,14 +244,6 @@ func parseColor(value string) Color {
 	return Black
 }
 
-func (n *BaseNode) HandleMouse(event MouseEvent) EventHandleState {
-	if event, has := n.eventCallbacks["click"]; has {
-		event(Event{})
-		return Handled
-	}
-	return Propogate
-}
-
 func (n *BaseNode) Parent() Node {
 	return n.parent
 }
@@ -266,10 +256,11 @@ func (n *BaseNode) SetParent(parent Node) {
 func (n *BaseNode) AddChildren(children ...Node) {
 	// We catch the event nodes being added and rather than add them as children to this node,
 	// we filter them out and incorporate their callbacks into this node.
-	// Seems better than polluting the tree with otherwise useless nodes.
+	// This allows for a more declarative UI construction where events are treated as first-class nodes.
 	var finalChildren []Node
 	for _, child := range children {
 		if eventNode, ok := child.(*EventNode); ok {
+			// Register the event callback with this node
 			n.eventCallbacks[eventNode.eventType] = eventNode.callback
 		} else {
 			child.SetParent(n)
@@ -372,27 +363,31 @@ func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
 	switch n.styles.FlexDirection {
 	case "row":
 		// Sum width, max height
-		for _, size := range childSizes {
+		for i, size := range childSizes {
 			totalSize.Width += size.Width
 			if size.Height > totalSize.Height {
 				totalSize.Height = size.Height
 			}
-		}
-		// Add spacing between items
-		if len(childSizes) > 1 {
-			totalSize.Width += float64(len(childSizes)-1) * n.styles.Margin.Left
+			// Add margin between items
+			if i < len(childSizes)-1 {
+				child1 := n.children[i]
+				child2 := n.children[i+1]
+				totalSize.Width += child1.GetStyles().Margin.Right + child2.GetStyles().Margin.Left
+			}
 		}
 	case "column":
 		// Sum height, max width
-		for _, size := range childSizes {
+		for i, size := range childSizes {
 			totalSize.Height += size.Height
 			if size.Width > totalSize.Width {
 				totalSize.Width = size.Width
 			}
-		}
-		// Add spacing between items
-		if len(childSizes) > 1 {
-			totalSize.Height += float64(len(childSizes)-1) * n.styles.Margin.Top
+			// Add margin between items
+			if i < len(childSizes)-1 {
+				child1 := n.children[i]
+				child2 := n.children[i+1]
+				totalSize.Height += child1.GetStyles().Margin.Bottom + child2.GetStyles().Margin.Top
+			}
 		}
 	}
 
@@ -472,8 +467,9 @@ func (n *BaseNode) ArrangeChildren(ctx RenderContext, bounds Rect) {
 	var currentX = contentArea.Position.X
 	var currentY = contentArea.Position.Y
 
-	for _, child := range n.children {
+	for i, child := range n.children {
 		childSize := child.GetFinalSize()
+		childStyles := child.GetStyles()
 
 		if n.styles.FlexDirection == "row" {
 			childBounds := Rect{
@@ -481,14 +477,22 @@ func (n *BaseNode) ArrangeChildren(ctx RenderContext, bounds Rect) {
 				Size:     childSize,
 			}
 			child.ArrangeChildren(ctx, childBounds)
-			currentX += childSize.Width + n.styles.Margin.Right
+			// Add child's right margin and next child's left margin
+			if i < len(n.children)-1 {
+				nextChild := n.children[i+1]
+				currentX += childSize.Width + childStyles.Margin.Right + nextChild.GetStyles().Margin.Left
+			}
 		} else { // column
 			childBounds := Rect{
 				Position: Point{X: currentX, Y: currentY},
 				Size:     childSize,
 			}
 			child.ArrangeChildren(ctx, childBounds)
-			currentY += childSize.Height + n.styles.Margin.Bottom
+			// Add child's bottom margin and next child's top margin
+			if i < len(n.children)-1 {
+				nextChild := n.children[i+1]
+				currentY += childSize.Height + childStyles.Margin.Bottom + nextChild.GetStyles().Margin.Top
+			}
 		}
 	}
 }
@@ -531,14 +535,14 @@ func NewTextNode(baseNode BaseNode, text string) Node {
 
 // Specialized implementation for TextNode
 func (n *TextNode) MeasurePreferred(ctx RenderContext) Size {
-	// In a real implementation, would calculate text metrics
-	// For this example, we'll use a simple approximation
-	fontSize := n.styles.FontSize.Value
-	charWidth := fontSize * 0.6
+	fontSize := int32(n.styles.FontSize.Value)
+	textWidth := float64(rl.MeasureText(n.text, fontSize))
+	textHeight := float64(fontSize) * 1.2 // Add some line height
 
+	// Add padding to the text size
 	return Size{
-		Width:  float64(len(n.text)) * charWidth,
-		Height: fontSize * 1.2,
+		Width:  textWidth + n.styles.Padding.Left + n.styles.Padding.Right,
+		Height: textHeight + n.styles.Padding.Top + n.styles.Padding.Bottom,
 	}
 }
 
@@ -570,11 +574,11 @@ func NewImageNode(baseNode BaseNode, sourceURL string) Node {
 
 type EventNode struct {
 	BaseNode
-	callback  func(Event)
-	eventType string
+	callback  func(UIEvent)
+	eventType UIEventType
 }
 
-func NewEventNode(baseNode BaseNode, eventType string, callback func(Event)) Node {
+func NewEventNode(baseNode BaseNode, eventType UIEventType, callback func(UIEvent)) Node {
 	eventNode := EventNode{
 		BaseNode:  baseNode,
 		callback:  callback,
@@ -650,4 +654,30 @@ func (r *Rect) Intersects(node Rect) bool {
 
 	// The two overlap
 	return true
+}
+
+// RemoveEventHandler removes an event handler for the given event type
+func (n *BaseNode) RemoveEventHandler(eventType UIEventType) {
+	delete(n.eventCallbacks, eventType)
+}
+
+// DispatchEvent dispatches an event to this node and its parent chain
+func (n *BaseNode) DispatchEvent(event UIEvent) {
+	// Set the target if not already set
+	if event.Target == nil {
+		event.Target = n
+	}
+
+	// Call the handler if one exists
+	if handler, has := n.eventCallbacks[event.Type]; has {
+		handler(event)
+		if event.StopPropagation {
+			return
+		}
+	}
+
+	// Propagate to parent
+	if parent := n.parent; parent != nil {
+		parent.DispatchEvent(event)
+	}
 }

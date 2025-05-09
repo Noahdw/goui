@@ -1,67 +1,74 @@
 package node
 
-type mouseEventState int
-
-const (
-	Pressed mouseEventState = iota
-	Released
-	Down
-	Entered
-	Exited
+import (
+	"time"
 )
 
-type EventHandleState int
+// UIEventType represents the type of UI event
+type UIEventType string
 
 const (
-	Handled EventHandleState = iota
-	Propogate
+	// Mouse events
+	UIClick   UIEventType = "click"
+	UIPress   UIEventType = "mousedown"
+	UIRelease UIEventType = "mouseup"
+	UIEnter   UIEventType = "mouseenter"
+	UILeave   UIEventType = "mouseleave"
+	UIMove    UIEventType = "mousemove"
+
+	// Keyboard events
+	UIKeyPress   UIEventType = "keydown"
+	UIKeyRelease UIEventType = "keyup"
+	UIKeyChar    UIEventType = "keychar"
+
+	// Focus events
+	UIFocus UIEventType = "focus"
+	UIBlur  UIEventType = "blur"
 )
 
-type MouseHandler interface {
-	HandleMouse(MouseEvent) EventHandleState
+// UIEvent represents a UI event
+type UIEvent struct {
+	Type      UIEventType
+	Target    Node
+	Timestamp int64
+	// Event specific data
+	MouseX  float64
+	MouseY  float64
+	KeyCode int
+	KeyChar rune
+	// Prevent default behavior
+	PreventDefault bool
+	// Stop propagation
+	StopPropagation bool
 }
 
-type BaseMouseHandler struct {
-	mouseEventHandler func(MouseEvent) EventHandleState
-}
-
-func (b *BaseMouseHandler) HandleMouse(event MouseEvent) EventHandleState {
-	if b.mouseEventHandler != nil {
-		return b.mouseEventHandler(event)
+// NewUIEvent creates a new UI event with the given type
+func NewUIEvent(eventType UIEventType, target Node) UIEvent {
+	return UIEvent{
+		Type:      eventType,
+		Target:    target,
+		Timestamp: time.Now().UnixNano(),
 	}
-	return Propogate
 }
 
-func (b *BaseMouseHandler) OnMouseEvent(handler func(MouseEvent) EventHandleState) {
-	b.mouseEventHandler = handler
+// NewUIMouseEvent creates a new mouse UI event
+func NewUIMouseEvent(eventType UIEventType, target Node, x, y float64) UIEvent {
+	return UIEvent{
+		Type:      eventType,
+		Target:    target,
+		Timestamp: time.Now().UnixNano(),
+		MouseX:    x,
+		MouseY:    y,
+	}
 }
 
-type MouseEvent struct {
-	state mouseEventState
-}
-
-func (m *MouseEvent) IsMouseButtonDown() bool {
-	return m.state == Down
-}
-
-func (m *MouseEvent) IsMouseButtonPressed() bool {
-	return m.state == Pressed
-}
-
-func (m *MouseEvent) IsMouseButtonReleased() bool {
-	return m.state == Released
-}
-
-func (m *MouseEvent) IsMouseEntered() bool {
-	return m.state == Entered
-}
-
-func (m *MouseEvent) IsMouseExited() bool {
-	return m.state == Exited
-}
-
-func NewMouseEvent(state mouseEventState) MouseEvent {
-	return MouseEvent{
-		state: state,
+// NewUIKeyboardEvent creates a new keyboard UI event
+func NewUIKeyboardEvent(eventType UIEventType, target Node, keyCode int, keyChar rune) UIEvent {
+	return UIEvent{
+		Type:      eventType,
+		Target:    target,
+		Timestamp: time.Now().UnixNano(),
+		KeyCode:   keyCode,
+		KeyChar:   keyChar,
 	}
 }

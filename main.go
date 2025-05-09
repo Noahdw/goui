@@ -6,8 +6,8 @@ import (
 	. "github.com/noahdw/goui/ui"
 )
 
-func doSomething(e n.Event) {
-	println("Something")
+func doSomething(e n.UIEvent) {
+	println("Something clicked at", e.MouseX, e.MouseY)
 }
 
 func main() {
@@ -32,9 +32,9 @@ func widget1() n.Node {
 		H1(
 			Text("My Application"),
 			OnEvent("click", doSomething),
-		).Color("blue").FontSize(30).Background("white").Margin(40),
+		).Color("blue").FontSize(30).Background("white").Margin(40).Padding(20),
 		H2(
 			Text("My Application 2"),
-		).Color("black").FontSize(20).Background("red").Opacity(.7),
+		).Color("black").FontSize(20).Background("red").Opacity(.7).Padding(20),
 	).Background("gray").Padding(20).BorderRadius(.3).Border("solid").Flex("column")
 }

@@ -131,7 +131,7 @@ func (r *RaylibRenderContext) DrawText(text string, bounds node.Rect, styles nod
 
 	// Calculate text dimensions for alignment
 	textWidth := rl.MeasureText(text, fontSize)
-	textHeight := fontSize
+	textHeight := float64(fontSize) * 1.2 // Use line height for better vertical centering
 
 	// Calculate position based on alignment
 	var x, y float64
@@ -146,8 +146,15 @@ func (r *RaylibRenderContext) DrawText(text string, bounds node.Rect, styles nod
 		x = bounds.Position.X
 	}
 
-	// Vertical centering (simple approach)
-	y = bounds.Position.Y + (bounds.Size.Height-float64(textHeight))/2
+	// Vertical alignment
+	switch styles.AlignItems {
+	case "center":
+		y = bounds.Position.Y + (bounds.Size.Height-textHeight)/2
+	case "bottom":
+		y = bounds.Position.Y + bounds.Size.Height - textHeight
+	default: // "top" or any other value
+		y = bounds.Position.Y
+	}
 
 	// Draw the text
 	rl.DrawText(

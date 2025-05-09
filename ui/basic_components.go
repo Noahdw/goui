@@ -4,10 +4,14 @@ import n "github.com/noahdw/goui/node"
 
 // H1 creates a heading level 1 node
 func H1(children ...n.Node) n.Node {
+	textAlign := "center"
+	alignItems := "center"
 	node := n.NewBaseNode("h1", n.NewStyles(n.StyleProps{
 		FontSize:   &n.StyleValue{Type: n.PIXEL, Value: 24, Source: n.Default},
 		FontWeight: &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
 		Margin:     &n.EdgeInsets{Top: 16, Right: 0, Bottom: 8, Left: 0},
+		TextAlign:  &textAlign,
+		AlignItems: &alignItems,
 	}))
 	node.AddChildren(children...)
 	return &node
@@ -15,10 +19,14 @@ func H1(children ...n.Node) n.Node {
 
 // H2 creates a heading level 2 node
 func H2(children ...n.Node) n.Node {
+	textAlign := "center"
+	alignItems := "center"
 	node := n.NewBaseNode("h2", n.NewStyles(n.StyleProps{
 		FontSize:   &n.StyleValue{Type: n.PIXEL, Value: 20, Source: n.Default},
 		FontWeight: &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
 		Margin:     &n.EdgeInsets{Top: 14, Right: 0, Bottom: 7, Left: 0},
+		TextAlign:  &textAlign,
+		AlignItems: &alignItems,
 	}))
 	node.AddChildren(children...)
 	return &node
@@ -26,10 +34,14 @@ func H2(children ...n.Node) n.Node {
 
 // Text creates a text node with the given content
 func Text(text string) n.Node {
+	textAlign := "left"
+	alignItems := "center"
 	node := n.NewBaseNode("text", n.NewStyles(n.StyleProps{
 		FontSize:   &n.StyleValue{Type: n.PIXEL, Value: 20, Source: n.Default},
 		FontWeight: &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
 		Color:      &n.Black,
+		TextAlign:  &textAlign,
+		AlignItems: &alignItems,
 	}))
 	return n.NewTextNode(node, text)
 }
@@ -74,7 +86,17 @@ func Rect(children ...n.Node) n.Node {
 	return &node
 }
 
-func OnEvent(eventType string, fn func(n.Event)) n.Node {
-	node := n.NewBaseNode("rect", n.NewStyles(n.StyleProps{}))
-	return n.NewEventNode(node, eventType, fn)
+// OnEvent creates an event handler node that will be absorbed by its parent.
+// The event handler will be registered with the parent node and will not appear in the node tree.
+// This allows for a declarative approach to event handling where events are treated as first-class nodes.
+//
+// Example:
+//   Rect(
+//     OnEvent("click", func(e n.UIEvent) { ... }),
+//     Text("Click me"),
+//   )
+func OnEvent(eventType string, fn func(n.UIEvent)) n.Node {
+	// Create a base node that will be absorbed by its parent
+	node := n.NewBaseNode("event", n.NewStyles(n.StyleProps{}))
+	return n.NewEventNode(node, n.UIEventType(eventType), fn)
 }
