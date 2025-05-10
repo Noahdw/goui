@@ -20,6 +20,8 @@ type RenderEngine struct {
 	pressedObj    Node // Node that was pressed, for click detection
 	pressX        float64
 	pressY        float64
+	lastMouseX    float64 // Track last mouse position
+	lastMouseY    float64
 }
 
 // NewRenderEngine creates a new render engine
@@ -55,88 +57,6 @@ func (r *RenderEngine) SetFocus(node Node) {
 }
 
 func (r *RenderEngine) RenderFrame() {
-	mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), r.camera)
-	cursor := Rect{
-		Position: Point{
-			X: float64(mouseWorldPos.X),
-			Y: float64(mouseWorldPos.Y),
-		}}
-	var foundObj = r.getObjUnderCursor(r.rootNode, cursor)
-	if foundObj != nil {
-		if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
-			// Store the pressed object and position for click detection
-			r.pressedObj = foundObj
-			r.pressX = float64(mouseWorldPos.X)
-			r.pressY = float64(mouseWorldPos.Y)
-
-			// Dispatch press event
-			event := NewUIMouseEvent(UIPress, foundObj, r.pressX, r.pressY)
-			foundObj.DispatchEvent(event)
-
-			// Set focus on press
-			r.SetFocus(foundObj)
-		}
-
-		if rl.IsMouseButtonDown(rl.MouseButtonLeft) {
-			event := NewUIMouseEvent(UIMove, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-			foundObj.DispatchEvent(event)
-		}
-
-		if rl.IsMouseButtonReleased(rl.MouseButtonLeft) {
-			// Dispatch release event
-			event := NewUIMouseEvent(UIRelease, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-			foundObj.DispatchEvent(event)
-
-			// If we released on the same object we pressed, it's a click
-			if r.pressedObj == foundObj {
-				// Calculate if the mouse moved too far during press (drag threshold)
-				dx := float64(mouseWorldPos.X) - r.pressX
-				dy := float64(mouseWorldPos.Y) - r.pressY
-				distance := dx*dx + dy*dy
-
-				// If the mouse didn't move too far, it's a click
-				if distance < 100 { // 10 pixels threshold
-					clickEvent := NewUIMouseEvent(UIClick, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-					foundObj.DispatchEvent(clickEvent)
-				}
-			}
-
-			// Clear pressed state
-			r.pressedObj = nil
-		}
-
-		// Last frame we found a different object, so we know that the mouse both
-		// entered the found object and exited the previous frames object.
-		if foundObj != r.lastFoundObj {
-			event := NewUIMouseEvent(UIEnter, foundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-			foundObj.DispatchEvent(event)
-			if r.lastFoundObj != nil {
-				event := NewUIMouseEvent(UILeave, r.lastFoundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-				r.lastFoundObj.DispatchEvent(event)
-			}
-			r.lastFoundObj = foundObj
-		}
-	} else if r.lastFoundObj != nil {
-		event := NewUIMouseEvent(UILeave, r.lastFoundObj, float64(mouseWorldPos.X), float64(mouseWorldPos.Y))
-		r.lastFoundObj.DispatchEvent(event)
-		r.lastFoundObj = nil
-	}
-
-	// Handle keyboard events - only send to focused node
-	key := rl.GetKeyPressed()
-	if key != 0 && r.focusedNode != nil {
-		event := NewUIKeyboardEvent(UIKeyPress, r.focusedNode, int(key), rune(key))
-		r.focusedNode.DispatchEvent(event)
-	}
-
-	// Handle Tab key for focus navigation
-	if rl.IsKeyPressed(rl.KeyTab) && r.focusedNode != nil {
-		// TODO: Implement focus navigation logic
-		// This would involve finding the next focusable node in the tree
-		// For now, we'll just clear focus
-		r.SetFocus(nil)
-	}
-
 	// Check if layout needs recalculation
 	if r.needsRender() {
 		// Pass 1: Resolve styles
@@ -162,6 +82,118 @@ func (r *RenderEngine) RenderFrame() {
 		r.rootNode.ArrangeChildren(r.renderContext, bounds)
 
 		r.needsLayout = false
+	}
+
+	// Handle mouse events
+	mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), r.camera)
+	mouseX := float64(mouseWorldPos.X)
+	mouseY := float64(mouseWorldPos.Y)
+
+	// Check if mouse has moved
+	mouseMoved := mouseX != r.lastMouseX || mouseY != r.lastMouseY
+	r.lastMouseX = mouseX
+	r.lastMouseY = mouseY
+
+	cursor := Rect{
+		Position: Point{
+			X: mouseX,
+			Y: mouseY,
+		},
+		Size: Size{Width: 1, Height: 1}, // Make cursor a 1x1 point
+	}
+
+	var foundObj = r.getObjUnderCursor(r.rootNode, cursor)
+
+	// Handle mouse button events
+	if foundObj != nil {
+		if rl.IsMouseButtonPressed(rl.MouseButtonLeft) {
+			// Store the pressed object and position for click detection
+			r.pressedObj = foundObj
+			r.pressX = mouseX
+			r.pressY = mouseY
+
+			// Dispatch press event
+			event := NewUIMouseEvent(UIPress, foundObj, r.pressX, r.pressY)
+			foundObj.DispatchEvent(event)
+
+			// Set focus on press
+			r.SetFocus(foundObj)
+
+			// Mark layout as dirty to ensure style changes are applied
+			r.MarkLayoutDirty()
+		}
+
+		if rl.IsMouseButtonReleased(rl.MouseButtonLeft) {
+			// Dispatch release event
+			event := NewUIMouseEvent(UIRelease, foundObj, mouseX, mouseY)
+			foundObj.DispatchEvent(event)
+
+			// If we released on the same object we pressed, it's a click
+			if r.pressedObj == foundObj {
+				// Calculate if the mouse moved too far during press (drag threshold)
+				dx := mouseX - r.pressX
+				dy := mouseY - r.pressY
+				distance := dx*dx + dy*dy
+
+				// If the mouse didn't move too far, it's a click
+				if distance < 100 { // 10 pixels threshold
+					clickEvent := NewUIMouseEvent(UIClick, foundObj, mouseX, mouseY)
+					foundObj.DispatchEvent(clickEvent)
+				}
+			}
+
+			// Clear pressed state
+			r.pressedObj = nil
+
+			// Mark layout as dirty to ensure style changes are applied
+			r.MarkLayoutDirty()
+		}
+	}
+
+	// Handle mouse move and hover events
+	if foundObj != nil {
+		// Only send move event if mouse has actually moved
+		if mouseMoved {
+			event := NewUIMouseEvent(UIMove, foundObj, mouseX, mouseY)
+			foundObj.DispatchEvent(event)
+		}
+
+		// Handle enter/leave events
+		if foundObj != r.lastFoundObj {
+			event := NewUIMouseEvent(UIEnter, foundObj, mouseX, mouseY)
+			foundObj.DispatchEvent(event)
+
+			if r.lastFoundObj != nil {
+				event := NewUIMouseEvent(UILeave, r.lastFoundObj, mouseX, mouseY)
+				r.lastFoundObj.DispatchEvent(event)
+			}
+			r.lastFoundObj = foundObj
+
+			// Mark layout as dirty to ensure style changes are applied
+			r.MarkLayoutDirty()
+		}
+	} else if r.lastFoundObj != nil {
+		event := NewUIMouseEvent(UILeave, r.lastFoundObj, mouseX, mouseY)
+		r.lastFoundObj.DispatchEvent(event)
+		r.lastFoundObj = nil
+
+		// Mark layout as dirty to ensure style changes are applied
+		r.MarkLayoutDirty()
+	}
+
+	// Handle keyboard events - only send to focused node
+	key := rl.GetKeyPressed()
+	if key != 0 && r.focusedNode != nil {
+		event := NewUIKeyboardEvent(UIKeyPress, r.focusedNode, int(key), rune(key))
+		r.focusedNode.DispatchEvent(event)
+	}
+
+	// Handle Tab key for focus navigation
+	if rl.IsKeyPressed(rl.KeyTab) && r.focusedNode != nil {
+		// TODO: Implement focus navigation logic
+		// This would involve finding the next focusable node in the tree
+		// For now, we'll just clear focus
+		r.SetFocus(nil)
 	}
 
 	// Clear the screen

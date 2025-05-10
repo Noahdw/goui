@@ -1,6 +1,10 @@
 package ui
 
-import n "github.com/noahdw/goui/node"
+import (
+	"fmt"
+
+	n "github.com/noahdw/goui/node"
+)
 
 // H1 creates a heading level 1 node
 func H1(children ...n.Node) n.Node {
@@ -91,10 +95,11 @@ func Rect(children ...n.Node) n.Node {
 // This allows for a declarative approach to event handling where events are treated as first-class nodes.
 //
 // Example:
-//   Rect(
-//     OnEvent("click", func(e n.UIEvent) { ... }),
-//     Text("Click me"),
-//   )
+//
+//	Rect(
+//	  OnEvent("click", func(e n.UIEvent) { ... }),
+//	  Text("Click me"),
+//	)
 func OnEvent(eventType string, fn func(n.UIEvent)) n.Node {
 	// Create a base node that will be absorbed by its parent
 	node := n.NewBaseNode("event", n.NewStyles(n.StyleProps{}))
@@ -106,19 +111,25 @@ func OnEvent(eventType string, fn func(n.UIEvent)) n.Node {
 // This allows for a declarative approach to style management where style changes are treated as first-class nodes.
 //
 // Example:
-//   Rect(
-//     StyleOnEvent("hover", &n.StyleProps{
-//       Background: &n.Color{240, 240, 240, 255},
-//       Scale: &1.1,
-//     }),
-//     Text("Hover me"),
-//   )
+//
+//	Rect(
+//	  StyleOnEvent("hover", &n.StyleProps{
+//	    Background: &n.Color{240, 240, 240, 255},
+//	    Scale: &1.1,
+//	  }),
+//	  Text("Hover me"),
+//	)
 func StyleOnEvent(state string, style *n.StyleProps) n.Node {
 	// Create a base node that will be absorbed by its parent
 	baseNode := n.NewBaseNode("style_handler", n.NewStyles(n.StyleProps{}))
 	node := &baseNode
+
+	// Create and add the state style
 	stateStyles := n.NewStyles(*style)
-	styles := node.GetStyles()
-	styles.AddStateStyle(state, &stateStyles)
+	node.GetStyles().AddStateStyle(state, &stateStyles)
+
+	// Debug logging
+	fmt.Printf("[DEBUG] Added style for state %s with properties: %+v\n", state, style)
+
 	return node
 }

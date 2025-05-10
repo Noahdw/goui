@@ -70,6 +70,7 @@ const (
 	BorderRadiusProp StyleProperty = "BorderRadius"
 	ShadowProp       StyleProperty = "Shadow"
 	OpacityProp      StyleProperty = "Opacity"
+	ScaleProp        StyleProperty = "Scale"
 )
 
 // StyleValue represents a value for a style property
@@ -150,6 +151,7 @@ type Styles struct {
 	BorderRadius EdgeInsets
 	Shadow       ShadowStyle
 	Opacity      float64
+	Scale        float64
 
 	// State-based style variations
 	StateStyles map[string]*Styles
@@ -157,6 +159,9 @@ type Styles struct {
 	// Track which properties were explicitly set
 	setProperties map[string]StyleSource
 	finalOpacity  float64
+
+	// Store original values for state-based style changes
+	originalValues map[string]interface{}
 }
 
 // StyleProps is used for initializing styles
@@ -230,6 +235,8 @@ var (
 )
 
 func NewStyles(props StyleProps) Styles {
+	debugLog("Creating new styles with props")
+
 	// Create styles with default values
 	styles := Styles{
 		Width:     StyleValue{Type: AUTO, Value: 0, Source: Default},
@@ -266,9 +273,12 @@ func NewStyles(props StyleProps) Styles {
 		BorderRadius: EdgeInsets{0, 0, 0, 0},
 		Shadow:       ShadowStyle{0, 0, 0, 0, Transparent},
 		Opacity:      1.0,
+		Scale:        1.0,
 
 		setProperties: make(map[string]StyleSource),
 		finalOpacity:  1.0,
+
+		originalValues: make(map[string]interface{}),
 	}
 
 	// Apply any properties passed in
@@ -276,53 +286,70 @@ func NewStyles(props StyleProps) Styles {
 		styles.Width = *props.Width
 		styles.Width.Source = Default
 		styles.setProperties[string(WidthProp)] = Default
+		debugLog("Applied Width: %v", styles.Width)
 	}
 	if props.Height != nil {
 		styles.Height = *props.Height
 		styles.Height.Source = Default
 		styles.setProperties[string(HeightProp)] = Default
+		debugLog("Applied Height: %v", styles.Height)
 	}
 	if props.MinWidth != nil {
 		styles.MinWidth = *props.MinWidth
 		styles.MinWidth.Source = Default
 		styles.setProperties[string(MinWidthProp)] = Default
+		debugLog("Applied MinWidth: %v", styles.MinWidth)
 	}
 	if props.FontFamily != nil {
 		styles.FontFamily = *props.FontFamily
 		styles.setProperties[string(FontFamilyProp)] = Default
+		debugLog("Applied FontFamily: %s", styles.FontFamily)
 	}
 	if props.FontSize != nil {
 		styles.FontSize = *props.FontSize
 		styles.FontSize.Source = Default
 		styles.setProperties[string(FontSizeProp)] = Default
+		debugLog("Applied FontSize: %v", styles.FontSize)
 	}
 	if props.Color != nil {
 		styles.Color = *props.Color
 		styles.setProperties[string(ColorProp)] = Default
+		debugLog("Applied Color: %v", styles.Color)
 	}
 	if props.Background != nil {
 		styles.Background = *props.Background
 		styles.setProperties[string(BackgroundProp)] = Default
+		debugLog("Applied Background: %v", styles.Background)
 	}
 	if props.FlexDirection != nil {
 		styles.FlexDirection = *props.FlexDirection
 		styles.setProperties[string(FlexDirectionProp)] = Default
+		debugLog("Applied FlexDirection: %s", styles.FlexDirection)
 	}
 	if props.Margin != nil {
 		styles.Margin = *props.Margin
 		styles.setProperties[string(MarginProp)] = Default
+		debugLog("Applied Margin: %v", styles.Margin)
 	}
 	if props.Padding != nil {
 		styles.Padding = *props.Padding
 		styles.setProperties[string(PaddingProp)] = Default
+		debugLog("Applied Padding: %v", styles.Padding)
 	}
 	if props.Border != nil {
 		styles.Border = *props.Border
 		styles.setProperties[string(BorderProp)] = Default
+		debugLog("Applied Border: %v", styles.Border)
 	}
 	if props.BorderRadius != nil {
 		styles.BorderRadius = *props.BorderRadius
 		styles.setProperties[string(BorderRadiusProp)] = Default
+		debugLog("Applied BorderRadius: %v", styles.BorderRadius)
+	}
+	if props.Scale != nil {
+		styles.Scale = *props.Scale
+		styles.setProperties["scale"] = Default
+		debugLog("Applied Scale: %v", styles.Scale)
 	}
 
 	return styles
@@ -367,16 +394,44 @@ func (e EdgeInsets) IsNonZero() bool {
 
 // AddStateStyle adds a style variation for a specific state
 func (s *Styles) AddStateStyle(state string, style *Styles) {
+	debugLog("Adding state style for state: %s", state)
 	if s.StateStyles == nil {
 		s.StateStyles = make(map[string]*Styles)
 	}
 	s.StateStyles[state] = style
+	debugLog("State styles count: %d", len(s.StateStyles))
 }
 
 // GetStateStyle returns the style variation for a specific state
 func (s *Styles) GetStateStyle(state string) *Styles {
 	if s.StateStyles == nil {
+		debugLog("No state styles found for state: %s", state)
 		return nil
 	}
-	return s.StateStyles[state]
+	style := s.StateStyles[state]
+	if style == nil {
+		debugLog("No style found for state: %s", state)
+	} else {
+		debugLog("Found style for state: %s", state)
+	}
+	return style
+}
+
+// Debug method to dump style information
+func (s *Styles) DumpStyles() {
+	debugLog("Style Dump:")
+	debugLog("  Layout:")
+	debugLog("    Width: %v", s.Width)
+	debugLog("    Height: %v", s.Height)
+	debugLog("  Visual:")
+	debugLog("    Background: %v", s.Background)
+	debugLog("    Opacity: %v", s.Opacity)
+	debugLog("    Scale: %v", s.Scale)
+	debugLog("  States:")
+	for state, style := range s.StateStyles {
+		debugLog("    %s:", state)
+		debugLog("      Background: %v", style.Background)
+		debugLog("      Opacity: %v", style.Opacity)
+		debugLog("      Scale: %v", style.Scale)
+	}
 }
