@@ -10,13 +10,14 @@ import (
 func H1(children ...n.Node) n.Node {
 	textAlign := "center"
 	alignItems := "center"
-	node := n.NewBaseNode("h1", n.NewStyles(n.StyleProps{
-		FontSize:   &n.StyleValue{Type: n.PIXEL, Value: 24, Source: n.Default},
-		FontWeight: &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
-		Margin:     &n.EdgeInsets{Top: 16, Right: 0, Bottom: 8, Left: 0},
-		TextAlign:  &textAlign,
-		AlignItems: &alignItems,
-	}))
+	props := map[string]interface{}{
+		"fontSize":   &n.StyleValue{Type: n.PIXEL, Value: 24, Source: n.Default},
+		"fontWeight": &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
+		"margin":     &n.EdgeInsets{Top: 16, Right: 0, Bottom: 8, Left: 0},
+		"textAlign":  &textAlign,
+		"alignItems": &alignItems,
+	}
+	node := n.NewBaseNode("h1", n.NewStyles(props))
 	node.AddChildren(children...)
 	return &node
 }
@@ -25,13 +26,14 @@ func H1(children ...n.Node) n.Node {
 func H2(children ...n.Node) n.Node {
 	textAlign := "center"
 	alignItems := "center"
-	node := n.NewBaseNode("h2", n.NewStyles(n.StyleProps{
-		FontSize:   &n.StyleValue{Type: n.PIXEL, Value: 20, Source: n.Default},
-		FontWeight: &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
-		Margin:     &n.EdgeInsets{Top: 14, Right: 0, Bottom: 7, Left: 0},
-		TextAlign:  &textAlign,
-		AlignItems: &alignItems,
-	}))
+	props := map[string]interface{}{
+		"fontSize":   &n.StyleValue{Type: n.PIXEL, Value: 20, Source: n.Default},
+		"fontWeight": &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
+		"margin":     &n.EdgeInsets{Top: 14, Right: 0, Bottom: 7, Left: 0},
+		"textAlign":  &textAlign,
+		"alignItems": &alignItems,
+	}
+	node := n.NewBaseNode("h2", n.NewStyles(props))
 	node.AddChildren(children...)
 	return &node
 }
@@ -40,70 +42,65 @@ func H2(children ...n.Node) n.Node {
 func Text(text string) n.Node {
 	textAlign := "left"
 	alignItems := "center"
-	node := n.NewBaseNode("text", n.NewStyles(n.StyleProps{
-		FontSize:   &n.StyleValue{Type: n.PIXEL, Value: 20, Source: n.Default},
-		FontWeight: &n.StyleValue{Type: n.PIXEL, Value: 700, Source: n.Default},
-		Color:      &n.Black,
-		TextAlign:  &textAlign,
-		AlignItems: &alignItems,
-	}))
+	props := map[string]interface{}{
+		"fontSize":   &n.StyleValue{Type: n.PIXEL, Value: 16, Source: n.Default},
+		"fontWeight": &n.StyleValue{Type: n.PIXEL, Value: 400, Source: n.Default},
+		"color":      &n.Black,
+		"textAlign":  &textAlign,
+		"alignItems": &alignItems,
+	}
+	node := n.NewBaseNode("text", n.NewStyles(props))
 	return n.NewTextNode(node, text)
 }
 
 // Button creates a button node with the given children
 func Button(children ...n.Node) n.Node {
-	node := n.NewBaseNode("button", n.NewStyles(n.StyleProps{
-		Padding:      &n.EdgeInsets{Top: 8, Right: 16, Bottom: 8, Left: 16},
-		Background:   &n.Gray,
-		Color:        &n.White,
-		BorderRadius: &n.EdgeInsets{Top: 4, Right: 4, Bottom: 4, Left: 4},
-	}))
+	props := map[string]interface{}{
+		"padding":      n.EdgeInsets{Top: 8, Right: 16, Bottom: 8, Left: 16},
+		"background":   n.Gray,
+		"color":        n.Black,
+		"borderRadius": n.EdgeInsets{Top: 4, Right: 4, Bottom: 4, Left: 4},
+	}
+	node := n.NewBaseNodeWithProps("button", props)
 	node.AddChildren(children...)
-	return &node
+	return node
 }
 
 // Layout creates a layout node with specified direction and children
 func Layout(direction string, children ...n.Node) n.Node {
-	node := n.NewBaseNode("layout", n.NewStyles(n.StyleProps{
-		FlexDirection: &direction,
-	}))
+	props := map[string]interface{}{
+		"flexDirection": direction,
+	}
+	node := n.NewBaseNodeWithProps("layout", props)
 	node.AddChildren(children...)
-	return &node
+	return node
 }
 
 // Image creates an image node with the given source URL
 func Image(sourceURL string) n.Node {
-	node := n.NewBaseNode("image", n.NewStyles(n.StyleProps{}))
+	props := map[string]interface{}{}
+	node := n.NewBaseNodeWithProps("image", props)
 	return n.NewImageNode(node, sourceURL)
 }
 
 // Rect creates a rectangle node with the given children
 func Rect(children ...n.Node) n.Node {
-	flexDirection := "row"
-	node := n.NewBaseNode("rect", n.NewStyles(n.StyleProps{
-		Padding:       &n.EdgeInsets{Top: 8, Right: 8, Bottom: 8, Left: 8},
-		Background:    &n.Gray,
-		Color:         &n.White,
-		FlexDirection: &flexDirection,
-	}))
+	props := map[string]interface{}{
+		"padding":       n.EdgeInsets{Top: 4, Right: 4, Bottom: 4, Left: 4},
+		"background":    n.Gray,
+		"color":         n.White,
+		"flexDirection": "row",
+	}
+	node := n.NewBaseNodeWithProps("rect", props)
 	node.AddChildren(children...)
-	return &node
+	return node
 }
 
-// OnEvent creates an event handler node that will be absorbed by its parent.
-// The event handler will be registered with the parent node and will not appear in the node tree.
-// This allows for a declarative approach to event handling where events are treated as first-class nodes.
-//
-// Example:
-//
-//	Rect(
-//	  OnEvent("click", func(e n.UIEvent) { ... }),
-//	  Text("Click me"),
-//	)
-func OnEvent(eventType string, fn func(n.UIEvent)) n.Node {
-	// Create a base node that will be absorbed by its parent
-	node := n.NewBaseNode("event", n.NewStyles(n.StyleProps{}))
-	return n.NewEventNode(node, n.UIEventType(eventType), fn)
+// OnEvent creates an event handler node
+func OnEvent(eventType n.UIEventType, callback func(n.UIEvent)) n.Node {
+	props := map[string]interface{}{}
+	node := n.NewBaseNodeWithProps("event_handler", props)
+	return n.NewEventNode(node, eventType, callback)
 }
 
 // StyleOnEvent creates a style change handler that will be absorbed by its parent.
@@ -121,11 +118,33 @@ func OnEvent(eventType string, fn func(n.UIEvent)) n.Node {
 //	)
 func StyleOnEvent(state string, style *n.StyleProps) n.Node {
 	// Create a base node that will be absorbed by its parent
-	baseNode := n.NewBaseNode("style_handler", n.NewStyles(n.StyleProps{}))
+	props := map[string]interface{}{}
+	baseNode := n.NewBaseNode("style_handler", n.NewStyles(props))
 	node := &baseNode
 
+	// Convert StyleProps to map[string]interface{}
+	stateProps := make(map[string]interface{})
+	if style.Background != nil {
+		stateProps["background"] = style.Background
+	}
+	if style.Color != nil {
+		stateProps["color"] = style.Color
+	}
+	if style.Scale != nil {
+		stateProps["scale"] = style.Scale
+	}
+
 	// Create and add the state style
-	stateStyles := n.NewStyles(*style)
+	stateStyles := n.NewStyles(stateProps)
+
+	// Ensure background color is marked as explicitly set if provided
+	if style.Background != nil {
+		stateStyles.MarkPropertyExplicit(n.BackgroundProp)
+	}
+	if style.Color != nil {
+		stateStyles.MarkPropertyExplicit(n.ColorProp)
+	}
+
 	node.GetStyles().AddStateStyle(state, &stateStyles)
 
 	// Debug logging

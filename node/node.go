@@ -2,28 +2,19 @@ package node
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type Node interface {
+	StyleBuilder // Include all style builder methods
+
 	// Style methods
-	Width(value interface{}) Node
-	Height(value interface{}) Node
-	Margin(value interface{}) Node
-	Padding(value interface{}) Node
-	FontSize(value interface{}) Node
-	Color(value string) Node
-	Opacity(value float64) Node
-	Background(value string) Node
-	Border(value string) Node
-	Flex(value string) Node
-	BorderWidth(value interface{}) Node
-	BorderRadius(value interface{}) Node
-	AlignItems(value string) Node
-	FontWeight(value interface{}) Node
+	GetStyle(key string) (interface{}, bool)
+	GetStyleFloat(key string) (float64, bool)
+	GetStyleString(key string) (string, bool)
+	GetStyleColor(key string) (Color, bool)
+	GetStyleEdgeInsets(key string) (EdgeInsets, bool)
 
 	// Structure methods
 	AddChildren(children ...Node)
@@ -95,6 +86,49 @@ func NewBaseNode(nodeType string, styles Styles) BaseNode {
 	}
 }
 
+// NewBaseNodeWithStyles creates a new base node with the given styles
+func NewBaseNodeWithStyles(nodeType string, styles Styles) Node {
+	return &BaseNode{
+		nodeType:       nodeType,
+		styles:         styles,
+		eventCallbacks: make(map[UIEventType]func(UIEvent)),
+	}
+}
+
+// NewBaseNodeWithProps creates a new base node with the given properties
+func NewBaseNodeWithProps(nodeType string, props map[string]interface{}) Node {
+	styles := NewStyles(props)
+
+	// If there were any style errors, create an error node to display them
+	if errorNode, ok := styles.properties["error"]; ok {
+		if errorMsg, ok := errorNode.Value.(string); ok {
+			errorStyles := NewStyles(map[string]interface{}{
+				"background": Red,
+				"color":      White,
+				"padding":    EdgeInsets{10, 10, 10, 10},
+				"width":      400,
+				"height":     100,
+			})
+			errorBase := BaseNode{
+				nodeType:       "error",
+				styles:         errorStyles,
+				eventCallbacks: make(map[UIEventType]func(UIEvent)),
+			}
+			errorText := TextNode{
+				BaseNode: errorBase,
+				text:     fmt.Sprintf("Style Error: %s", errorMsg),
+			}
+			return &errorText
+		}
+	}
+
+	return &BaseNode{
+		nodeType:       nodeType,
+		styles:         styles,
+		eventCallbacks: make(map[UIEventType]func(UIEvent)),
+	}
+}
+
 // Size represents width and height
 type Size struct {
 	Width, Height float64
@@ -118,171 +152,45 @@ type Constraints struct {
 
 // RenderContext provides context for rendering
 type RenderContext interface {
-	// Drawing methods would go here
-	Clear()
-	DrawBackground(bounds Rect, styles Styles, opacity float64)
-	DrawBorders(bounds Rect, styles Styles, opacity float64)
-	DrawText(text string, bounds Rect, styles Styles, opacity float64)
-	DrawTexture(sourceURL string, bounds Rect, styles Styles, opacity float64)
-	ClipRect() Rect
 	LoadTexture(sourceURL string) rl.Texture2D
 	Present()
+	Save()
+	Restore()
+	SetOpacity(opacity float64)
+	SetFillColor(color Color)
+	SetStrokeColor(color Color)
+	SetLineWidth(width float64)
+	StrokeLine(start Point, end Point)
+	SetFontSize(size float64)
+	DrawText(text string, bounds Rect, styles Styles, opacity float64)
+	DrawBackground(bounds Rect, styles Styles, opacity float64)
+	DrawBorders(bounds Rect, styles Styles, opacity float64)
+	DrawTexture(sourceURL string, bounds Rect, styles Styles, opacity float64)
+	FillRect(rect Rect)
+	Scale(x, y float64)
+	Clear()
+	ClipRect() Rect
+	SetClipRect(rect Rect)
 }
 
-// Style method implementations for BaseNode
-func (n *BaseNode) Width(value interface{}) Node {
-	n.styles.Width = parseStyleValue(value)
-	n.styles.setProperties[string(WidthProp)] = Explicit
-	return n
+func (n *BaseNode) GetStyle(key string) (interface{}, bool) {
+	return n.styles.Get(key)
 }
 
-func (n *BaseNode) Height(value interface{}) Node {
-	n.styles.Height = parseStyleValue(value)
-	n.styles.setProperties[string(HeightProp)] = Explicit
-	return n
+func (n *BaseNode) GetStyleFloat(key string) (float64, bool) {
+	return n.styles.GetFloat(key)
 }
 
-func (n *BaseNode) Margin(value interface{}) Node {
-	m := parseMarginPadding(value)
-	n.styles.Margin = m
-	n.styles.setProperties[string(MarginProp)] = Explicit
-	return n
+func (n *BaseNode) GetStyleString(key string) (string, bool) {
+	return n.styles.GetString(key)
 }
 
-func (n *BaseNode) Padding(value interface{}) Node {
-	p := parseMarginPadding(value)
-	n.styles.Padding = p
-	n.styles.setProperties[string(PaddingProp)] = Explicit
-	return n
+func (n *BaseNode) GetStyleColor(key string) (Color, bool) {
+	return n.styles.GetColor(key)
 }
 
-func (n *BaseNode) Border(value string) Node {
-	n.styles.Border.Style = value
-	n.styles.setProperties[string(BorderProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) BorderWidth(value interface{}) Node {
-	n.styles.Border.Width = parseMarginPadding(value)
-	n.styles.setProperties[string(BorderProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) BorderRadius(value interface{}) Node {
-	m := parseMarginPadding(value)
-	n.styles.BorderRadius = m
-	n.styles.setProperties[string(BorderRadiusProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) Flex(value string) Node {
-	n.styles.FlexDirection = value
-	n.styles.setProperties[string(FlexDirectionProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) FontSize(value interface{}) Node {
-	n.styles.FontSize = parseStyleValue(value)
-	n.styles.setProperties[string(FontSizeProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) Color(value string) Node {
-	n.styles.Color = parseColor(value)
-	n.styles.setProperties[string(ColorProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) Background(value string) Node {
-	n.styles.Background = parseColor(value)
-	n.styles.setProperties[string(BackgroundProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) Opacity(value float64) Node {
-	n.styles.Opacity = value
-	n.styles.setProperties[string(OpacityProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) AlignItems(value string) Node {
-	n.styles.AlignItems = value
-	n.styles.setProperties[string(AlignItemsProp)] = Explicit
-	return n
-}
-
-func (n *BaseNode) FontWeight(value interface{}) Node {
-	n.styles.FontWeight = parseStyleValue(value)
-	n.styles.setProperties[string(FontWeightProp)] = Explicit
-	return n
-}
-
-// Helper to parse margin/padding values
-func parseMarginPadding(value interface{}) EdgeInsets {
-	switch v := value.(type) {
-	case int:
-		return EdgeInsets{float64(v), float64(v), float64(v), float64(v)}
-	case float64:
-		return EdgeInsets{v, v, v, v}
-	case [4]int:
-		return EdgeInsets{float64(v[0]), float64(v[1]), float64(v[2]), float64(v[3])}
-	case [4]float64:
-		return EdgeInsets{v[0], v[1], v[2], v[3]}
-	case [2]int:
-		return EdgeInsets{float64(v[0]), float64(v[1]), float64(v[0]), float64(v[1])}
-	case [2]float64:
-		return EdgeInsets{v[0], v[1], v[0], v[1]}
-	}
-	// Default
-	return EdgeInsets{0, 0, 0, 0}
-}
-
-// Helper to parse color values
-func parseColor(value string) Color {
-	// Handle named colors
-	switch value {
-	case "black":
-		return Black
-	case "white":
-		return White
-	case "red":
-		return Red
-	case "green":
-		return Green
-	case "blue":
-		return Blue
-	case "yellow":
-		return Yellow
-	case "cyan":
-		return Cyan
-	case "magenta":
-		return Magenta
-	case "gray":
-		return Gray
-	case "transparent":
-		return Transparent
-	}
-
-	// Handle hex colors
-	if strings.HasPrefix(value, "#") {
-		hex := value[1:]
-		if len(hex) == 3 {
-			// #RGB format
-			r, _ := strconv.ParseUint(string(hex[0])+string(hex[0]), 16, 8)
-			g, _ := strconv.ParseUint(string(hex[1])+string(hex[1]), 16, 8)
-			b, _ := strconv.ParseUint(string(hex[2])+string(hex[2]), 16, 8)
-			return Color{uint8(r), uint8(g), uint8(b), 255}
-		} else if len(hex) == 6 {
-			// #RRGGBB format
-			r, _ := strconv.ParseUint(hex[0:2], 16, 8)
-			g, _ := strconv.ParseUint(hex[2:4], 16, 8)
-			b, _ := strconv.ParseUint(hex[4:6], 16, 8)
-			return Color{uint8(r), uint8(g), uint8(b), 255}
-		}
-	}
-
-	// Default to black for invalid colors
-	return Black
+func (n *BaseNode) GetStyleEdgeInsets(key string) (EdgeInsets, bool) {
+	return n.styles.GetEdgeInsets(key)
 }
 
 func (n *BaseNode) Parent() Node {
@@ -305,10 +213,8 @@ func (n *BaseNode) AddChildren(children ...Node) {
 			n.eventCallbacks[eventNode.eventType] = eventNode.callback
 		} else if styleNode, ok := child.(*BaseNode); ok && styleNode.nodeType == "style_handler" {
 			// Incorporate the style changes into this node's styles
-			if styleNode.styles.StateStyles != nil {
-				for state, style := range styleNode.styles.StateStyles {
-					n.styles.AddStateStyle(state, style)
-				}
+			if stateStyles := styleNode.styles.GetStateStyle("all"); stateStyles != nil {
+				n.styles.AddStateStyle("all", stateStyles)
 			}
 		} else {
 			child.SetParent(n)
@@ -338,42 +244,24 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 
 	// For inheritable properties, check if they're set in this node
 	// If not, inherit from parent
-	inheritableProps := []StyleProperty{
-		FontFamilyProp, FontSizeProp, ColorProp, LineHeightProp, BackgroundProp, OpacityProp,
+	inheritableProps := []string{
+		"fontFamily", "fontSize", "color", "lineHeight", "background", "opacity",
 	}
 
 	for _, prop := range inheritableProps {
 		// Only inherit if:
 		// 1. Parent has the property set (explicitly or inherited)
 		// 2. This node doesn't have it explicitly set
-		parentSource, parentHasIt := parentStyles.setProperties[string(prop)]
+		parentSource, parentHasIt := parentStyles.setProperties[prop]
 		parentHasIt = (parentSource == Explicit || parentSource == Inherited)
 
-		selfSource, selfHasIt := resolvedStyles.setProperties[string(prop)]
+		selfSource, selfHasIt := resolvedStyles.setProperties[prop]
 		selfHasIt = (selfSource == Explicit)
 
 		if parentHasIt && !selfHasIt {
-			switch prop {
-			case FontFamilyProp:
-				resolvedStyles.FontFamily = parentStyles.FontFamily
-				resolvedStyles.setProperties[string(prop)] = Inherited
-			case FontSizeProp:
-				resolvedStyles.FontSize = parentStyles.FontSize
-				resolvedStyles.FontSize.Source = Inherited
-				resolvedStyles.setProperties[string(prop)] = Inherited
-			case ColorProp:
-				resolvedStyles.Color = parentStyles.Color
-				resolvedStyles.setProperties[string(prop)] = Inherited
-			case OpacityProp:
-				resolvedStyles.Opacity = parentStyles.Opacity
-				resolvedStyles.setProperties[string(prop)] = Inherited
-			case BackgroundProp:
-				resolvedStyles.Background = parentStyles.Background
-				resolvedStyles.setProperties[string(prop)] = Inherited
-			case LineHeightProp:
-				resolvedStyles.LineHeight = parentStyles.LineHeight
-				resolvedStyles.LineHeight.Source = Inherited
-				resolvedStyles.setProperties[string(prop)] = Inherited
+			if value, ok := parentStyles.Get(prop); ok {
+				resolvedStyles.Set(prop, value)
+				resolvedStyles.setProperties[prop] = Inherited
 			}
 		}
 	}
@@ -383,29 +271,38 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 		resolvedStyles.RestoreOriginalStyles()
 	} else {
 		// Apply state-based styles
-		if n.state.IsHovered && resolvedStyles.StateStyles != nil {
-			if hoverStyle := resolvedStyles.StateStyles["hover"]; hoverStyle != nil {
+		if n.state.IsHovered {
+			if hoverStyle := resolvedStyles.GetStateStyle("hover"); hoverStyle != nil {
 				applyStateStyle(&resolvedStyles, hoverStyle)
 			}
 		}
-		if n.state.IsActive && resolvedStyles.StateStyles != nil {
-			if activeStyle := resolvedStyles.StateStyles["active"]; activeStyle != nil {
+		if n.state.IsActive {
+			if activeStyle := resolvedStyles.GetStateStyle("active"); activeStyle != nil {
 				applyStateStyle(&resolvedStyles, activeStyle)
 			}
 		}
-		if n.state.IsFocused && resolvedStyles.StateStyles != nil {
-			if focusStyle := resolvedStyles.StateStyles["focus"]; focusStyle != nil {
+		if n.state.IsFocused {
+			if focusStyle := resolvedStyles.GetStateStyle("focus"); focusStyle != nil {
 				applyStateStyle(&resolvedStyles, focusStyle)
 			}
 		}
-		if n.state.IsDisabled && resolvedStyles.StateStyles != nil {
-			if disabledStyle := resolvedStyles.StateStyles["disabled"]; disabledStyle != nil {
+		if n.state.IsDisabled {
+			if disabledStyle := resolvedStyles.GetStateStyle("disabled"); disabledStyle != nil {
 				applyStateStyle(&resolvedStyles, disabledStyle)
 			}
 		}
 	}
 
-	resolvedStyles.finalOpacity = resolvedStyles.Opacity * parentStyles.finalOpacity
+	// Calculate final opacity
+	if opacity, ok := resolvedStyles.GetFloat("opacity"); ok {
+		if parentOpacity, ok := parentStyles.GetFloat("opacity"); ok {
+			resolvedStyles.finalOpacity = opacity * parentOpacity
+		} else {
+			resolvedStyles.finalOpacity = opacity
+		}
+	} else {
+		resolvedStyles.finalOpacity = parentStyles.finalOpacity
+	}
 	n.finalOpacity = resolvedStyles.finalOpacity
 
 	// Apply the same process to all children
@@ -418,7 +315,6 @@ func (n *BaseNode) ResolveStyles(parentStyles Styles) Styles {
 
 // applyStateStyle applies a state style variation to the base styles
 func applyStateStyle(base *Styles, state *Styles) {
-	// Store original values before applying state styles
 	if base.originalValues == nil {
 		base.originalValues = make(map[string]interface{})
 	}
@@ -428,181 +324,16 @@ func applyStateStyle(base *Styles, state *Styles) {
 		if source == Explicit {
 			// Store original value if not already stored
 			if _, exists := base.originalValues[prop]; !exists {
-				switch StyleProperty(prop) {
-				case WidthProp:
-					base.originalValues[prop] = base.Width
-				case HeightProp:
-					base.originalValues[prop] = base.Height
-				case MarginProp:
-					base.originalValues[prop] = base.Margin
-				case PaddingProp:
-					base.originalValues[prop] = base.Padding
-				case FontSizeProp:
-					base.originalValues[prop] = base.FontSize
-				case ColorProp:
-					base.originalValues[prop] = base.Color
-				case OpacityProp:
-					base.originalValues[prop] = base.Opacity
-				case BackgroundProp:
-					base.originalValues[prop] = base.Background
-				case BorderProp:
-					base.originalValues[prop] = base.Border
-				case BorderRadiusProp:
-					base.originalValues[prop] = base.BorderRadius
-				case FlexDirectionProp:
-					base.originalValues[prop] = base.FlexDirection
-				case AlignItemsProp:
-					base.originalValues[prop] = base.AlignItems
-				case FontWeightProp:
-					base.originalValues[prop] = base.FontWeight
-				case ScaleProp:
-					base.originalValues[prop] = state.Scale
+				if value, ok := base.Get(prop); ok {
+					base.originalValues[prop] = value
 				}
 			}
-
 			// Apply new value
-			switch StyleProperty(prop) {
-			case WidthProp:
-				base.Width = state.Width
-			case HeightProp:
-				base.Height = state.Height
-			case MarginProp:
-				base.Margin = state.Margin
-			case PaddingProp:
-				base.Padding = state.Padding
-			case FontSizeProp:
-				base.FontSize = state.FontSize
-			case ColorProp:
-				base.Color = state.Color
-			case OpacityProp:
-				base.Opacity = state.Opacity
-			case BackgroundProp:
-				base.Background = state.Background
-			case BorderProp:
-				base.Border = state.Border
-			case BorderRadiusProp:
-				base.BorderRadius = state.BorderRadius
-			case FlexDirectionProp:
-				base.FlexDirection = state.FlexDirection
-			case AlignItemsProp:
-				base.AlignItems = state.AlignItems
-			case FontWeightProp:
-				base.FontWeight = state.FontWeight
-			case ScaleProp:
-				base.Scale = state.Scale
-			}
-			base.setProperties[prop] = Explicit
-		}
-	}
-
-	// Handle scale separately since it's not a StyleProperty
-	if state.Scale != 1.0 {
-		if _, exists := base.originalValues["scale"]; !exists {
-			base.originalValues["scale"] = base.Scale
-		}
-		base.Scale = state.Scale
-		base.setProperties["scale"] = Explicit
-	}
-}
-
-// RestoreOriginalStyles restores the original styles when a state is removed
-func (s *Styles) RestoreOriginalStyles() {
-	if s.originalValues == nil {
-		return
-	}
-
-	for prop, value := range s.originalValues {
-		switch prop {
-		case string(WidthProp):
-			s.Width = value.(StyleValue)
-		case string(HeightProp):
-			s.Height = value.(StyleValue)
-		case string(MarginProp):
-			s.Margin = value.(EdgeInsets)
-		case string(PaddingProp):
-			s.Padding = value.(EdgeInsets)
-		case string(FontSizeProp):
-			s.FontSize = value.(StyleValue)
-		case string(ColorProp):
-			s.Color = value.(Color)
-		case string(OpacityProp):
-			s.Opacity = value.(float64)
-		case string(BackgroundProp):
-			s.Background = value.(Color)
-		case string(BorderProp):
-			s.Border = value.(BorderStyle)
-		case string(BorderRadiusProp):
-			s.BorderRadius = value.(EdgeInsets)
-		case string(FlexDirectionProp):
-			s.FlexDirection = value.(string)
-		case string(AlignItemsProp):
-			s.AlignItems = value.(string)
-		case string(FontWeightProp):
-			s.FontWeight = value.(StyleValue)
-		case "scale":
-			s.Scale = value.(float64)
-		}
-		delete(s.setProperties, prop)
-	}
-	s.originalValues = nil
-}
-
-func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
-	// For leaf nodes, calculate intrinsic size
-	if len(n.children) == 0 {
-		return Size{0, 0} // Override in specific node types
-	}
-
-	if n.styles.Opacity == 0 {
-		return Size{0, 0} // Don't render hidden objects
-	}
-
-	// For container nodes, measure all children first
-	childSizes := make([]Size, len(n.children))
-	for i, child := range n.children {
-		childSizes[i] = child.MeasurePreferred(ctx)
-	}
-
-	// Based on layout type, calculate how big this node needs to be
-	var totalSize Size
-	switch n.styles.FlexDirection {
-	case "row":
-		// Sum width, max height
-		for i, size := range childSizes {
-			totalSize.Width += size.Width
-			if size.Height > totalSize.Height {
-				totalSize.Height = size.Height
-			}
-			// Add margin between items
-			if i < len(childSizes)-1 {
-				child1 := n.children[i]
-				child2 := n.children[i+1]
-				totalSize.Width += child1.GetStyles().Margin.Right + child2.GetStyles().Margin.Left
-			}
-		}
-	case "column":
-		// Sum height, max width
-		for i, size := range childSizes {
-			totalSize.Height += size.Height
-			if size.Width > totalSize.Width {
-				totalSize.Width = size.Width
-			}
-			// Add margin between items
-			if i < len(childSizes)-1 {
-				child1 := n.children[i]
-				child2 := n.children[i+1]
-				totalSize.Height += child1.GetStyles().Margin.Bottom + child2.GetStyles().Margin.Top
+			if value, ok := state.Get(prop); ok {
+				base.Set(prop, value)
 			}
 		}
 	}
-
-	// Add padding
-	totalSize.Width += n.styles.Padding.Left + n.styles.Padding.Right
-	totalSize.Height += n.styles.Padding.Top + n.styles.Padding.Bottom
-
-	// Store preferred size
-	n.preferredSize = totalSize
-	return totalSize
 }
 
 func (n *BaseNode) Layout(ctx RenderContext, constraints Constraints) Size {
@@ -616,19 +347,28 @@ func (n *BaseNode) Layout(ctx RenderContext, constraints Constraints) Size {
 	}
 
 	// Handle special cases like Fill Parent
-	if n.styles.Width.Type == PERCENTAGE {
-		finalSize.Width = constraints.MaxWidth * n.styles.Width.Value / 100
+	if width, ok := n.styles.Get("width"); ok {
+		if widthValue, ok := width.(StyleValue); ok && widthValue.Type == PERCENTAGE {
+			finalSize.Width = constraints.MaxWidth * widthValue.Value.(float64) / 100
+		}
 	}
 
-	if n.styles.Height.Type == PERCENTAGE {
-		finalSize.Height = constraints.MaxHeight * n.styles.Height.Value / 100
+	if height, ok := n.styles.Get("height"); ok {
+		if heightValue, ok := height.(StyleValue); ok && heightValue.Type == PERCENTAGE {
+			finalSize.Height = constraints.MaxHeight * heightValue.Value.(float64) / 100
+		}
 	}
 
 	// If we have children, layout them now
 	if len(n.children) > 0 {
 		// Calculate available space for children (minus padding)
-		availableWidth := finalSize.Width - n.styles.Padding.Left - n.styles.Padding.Right
-		availableHeight := finalSize.Height - n.styles.Padding.Top - n.styles.Padding.Bottom
+		availableWidth := finalSize.Width
+		availableHeight := finalSize.Height
+
+		if padding, ok := n.styles.GetEdgeInsets("padding"); ok {
+			availableWidth -= padding.Left + padding.Right
+			availableHeight -= padding.Top + padding.Bottom
+		}
 
 		// Create child constraints based on layout direction
 		childConstraints := Constraints{
@@ -661,45 +401,69 @@ func (n *BaseNode) ArrangeChildren(ctx RenderContext, bounds Rect) {
 	// Calculate content area (bounds minus padding)
 	contentArea := Rect{
 		Position: Point{
-			X: bounds.Position.X + n.styles.Padding.Left,
-			Y: bounds.Position.Y + n.styles.Padding.Top,
+			X: bounds.Position.X,
+			Y: bounds.Position.Y,
 		},
 		Size: Size{
-			Width:  bounds.Size.Width - n.styles.Padding.Left - n.styles.Padding.Right,
-			Height: bounds.Size.Height - n.styles.Padding.Top - n.styles.Padding.Bottom,
+			Width:  bounds.Size.Width,
+			Height: bounds.Size.Height,
 		},
+	}
+
+	// Apply padding if present
+	if padding, ok := n.styles.GetEdgeInsets("padding"); ok {
+		contentArea.Position.X += padding.Left
+		contentArea.Position.Y += padding.Top
+		contentArea.Size.Width -= padding.Left + padding.Right
+		contentArea.Size.Height -= padding.Top + padding.Bottom
 	}
 
 	// Position each child based on layout direction
 	var currentX = contentArea.Position.X
 	var currentY = contentArea.Position.Y
 
-	for i, child := range n.children {
+	// Get flex direction
+	flexDir := "row" // default
+	if dir, ok := n.styles.GetString("flexDirection"); ok {
+		flexDir = dir
+	}
+
+	for _, child := range n.children {
 		childSize := child.GetFinalSize()
 		childStyles := child.GetStyles()
 
-		if n.styles.FlexDirection == "row" {
+		// Get margins for current child
+		var margin EdgeInsets
+		if m, ok := childStyles.GetEdgeInsets("margin"); ok {
+			margin = m
+		}
+
+		if flexDir == "row" {
+			// Position child horizontally
 			childBounds := Rect{
-				Position: Point{X: currentX, Y: currentY},
-				Size:     childSize,
+				Position: Point{
+					X: currentX + margin.Left,
+					Y: currentY + margin.Top,
+				},
+				Size: childSize,
 			}
 			child.ArrangeChildren(ctx, childBounds)
-			// Add child's right margin and next child's left margin
-			if i < len(n.children)-1 {
-				nextChild := n.children[i+1]
-				currentX += childSize.Width + childStyles.Margin.Right + nextChild.GetStyles().Margin.Left
-			}
+
+			// Update currentX for next child
+			currentX += childSize.Width + margin.Left + margin.Right
 		} else { // column
+			// Position child vertically
 			childBounds := Rect{
-				Position: Point{X: currentX, Y: currentY},
-				Size:     childSize,
+				Position: Point{
+					X: currentX + margin.Left,
+					Y: currentY + margin.Top,
+				},
+				Size: childSize,
 			}
 			child.ArrangeChildren(ctx, childBounds)
-			// Add child's bottom margin and next child's top margin
-			if i < len(n.children)-1 {
-				nextChild := n.children[i+1]
-				currentY += childSize.Height + childStyles.Margin.Bottom + nextChild.GetStyles().Margin.Top
-			}
+
+			// Update currentY for next child
+			currentY += childSize.Height + margin.Top + margin.Bottom
 		}
 	}
 }
@@ -713,47 +477,47 @@ func (n *BaseNode) GetFinalBounds() Rect {
 }
 
 func (n *BaseNode) Paint(ctx RenderContext) {
-	// Debug paint operation
-	//debugLog("Painting %s (scale: %v, opacity: %v)", n.nodeType, n.styles.Scale, n.finalOpacity)
+	// Apply opacity if set
+	opacity, _ := n.styles.GetFloat("opacity")
+	if opacity < 1.0 {
+		ctx.Save()
+		ctx.SetOpacity(opacity)
+		defer ctx.Restore()
+	}
 
-	// Apply scale transformation if needed
-	if n.styles.Scale != 1.0 {
-		// Calculate the center point of the node
-		centerX := n.finalBounds.Position.X + n.finalBounds.Size.Width/2
-		centerY := n.finalBounds.Position.Y + n.finalBounds.Size.Height/2
+	// Apply scale if set
+	scale, _ := n.styles.GetFloat("scale")
+	if scale != 1.0 {
+		ctx.Save()
+		ctx.Scale(scale, scale)
+		defer ctx.Restore()
+	}
 
-		// Calculate scaled bounds
-		scaledWidth := n.finalBounds.Size.Width * n.styles.Scale
-		scaledHeight := n.finalBounds.Size.Height * n.styles.Scale
+	// Draw background if set
+	if bgColor, ok := n.styles.GetColor("background"); ok {
+		ctx.SetFillColor(bgColor)
+		ctx.DrawBackground(n.finalBounds, n.styles, opacity)
+	}
 
-		// Calculate new position to keep the center point
-		newX := centerX - scaledWidth/2
-		newY := centerY - scaledHeight/2
-
-		// Create scaled bounds
-		scaledBounds := Rect{
-			Position: Point{X: newX, Y: newY},
-			Size:     Size{Width: scaledWidth, Height: scaledHeight},
-		}
-
-		// Draw this node's background with scaled bounds
-		ctx.DrawBackground(scaledBounds, n.styles, n.finalOpacity)
-
-		// Draw borders if needed
-		if n.styles.Border.CanDisplay() {
-			ctx.DrawBorders(scaledBounds, n.styles, n.finalOpacity)
-		}
-	} else {
-		// Draw this node's background
-		ctx.DrawBackground(n.finalBounds, n.styles, n.finalOpacity)
-
-		// Draw borders if needed
-		if n.styles.Border.CanDisplay() {
-			ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
+	// Draw border if set
+	if border, ok := n.styles.Get("border"); ok {
+		if borderStyle, ok := border.(BorderStyle); ok && borderStyle.CanDisplay() {
+			ctx.DrawBorders(n.finalBounds, n.styles, opacity)
 		}
 	}
 
-	// Draw all children
+	// Draw text if set
+	if text, ok := n.styles.GetString("text"); ok {
+		if fontSize, ok := n.styles.GetFloat("fontSize"); ok {
+			if textColor, ok := n.styles.GetColor("color"); ok {
+				ctx.SetFontSize(fontSize)
+				ctx.SetFillColor(textColor)
+				ctx.DrawText(text, n.finalBounds, n.styles, opacity)
+			}
+		}
+	}
+
+	// Paint children
 	for _, child := range n.children {
 		child.Paint(ctx)
 	}
@@ -774,14 +538,15 @@ func NewTextNode(baseNode BaseNode, text string) Node {
 
 // Specialized implementation for TextNode
 func (n *TextNode) MeasurePreferred(ctx RenderContext) Size {
-	fontSize := int32(n.styles.FontSize.Value)
-	textWidth := float64(rl.MeasureText(n.text, fontSize))
-	textHeight := float64(fontSize) * 1.2 // Add some line height
+	fontSize, _ := n.styles.GetFloat("fontSize")
+	padding, _ := n.styles.GetEdgeInsets("padding")
+	textWidth := float64(rl.MeasureText(n.text, int32(fontSize)))
+	textHeight := fontSize * 1.2 // Add some line height
 
 	// Add padding to the text size
 	return Size{
-		Width:  textWidth + n.styles.Padding.Left + n.styles.Padding.Right,
-		Height: textHeight + n.styles.Padding.Top + n.styles.Padding.Bottom,
+		Width:  textWidth + padding.Left + padding.Right,
+		Height: textHeight + padding.Top + padding.Bottom,
 	}
 }
 
@@ -790,8 +555,10 @@ func (n *TextNode) Paint(ctx RenderContext) {
 	ctx.DrawBackground(n.finalBounds, n.styles, n.finalOpacity)
 
 	// Draw borders if needed
-	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
+	if border, ok := n.styles.Get("border"); ok {
+		if borderStyle, ok := border.(BorderStyle); ok && borderStyle.CanDisplay() {
+			ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
+		}
 	}
 
 	// Then draw the text
@@ -803,9 +570,28 @@ type ImageNode struct {
 	sourceURL string
 }
 
-func NewImageNode(baseNode BaseNode, sourceURL string) Node {
+func NewImageNode(baseNode Node, sourceURL string) Node {
+	if baseNode == nil {
+		return nil
+	}
+	// Convert the Node to BaseNode
+	base, ok := baseNode.(*BaseNode)
+	if !ok {
+		// If we can't convert, create an error node
+		errorNode := NewBaseNodeWithProps("error", map[string]interface{}{
+			"background": Red,
+			"color":      White,
+			"padding":    EdgeInsets{10, 10, 10, 10},
+			"width":      400,
+			"height":     100,
+		})
+		if errorText, ok := errorNode.(*TextNode); ok {
+			errorText.text = "Invalid node type for ImageNode"
+		}
+		return errorNode
+	}
 	imageNode := ImageNode{
-		BaseNode:  baseNode,
+		BaseNode:  *base,
 		sourceURL: sourceURL,
 	}
 	return &imageNode
@@ -817,9 +603,28 @@ type EventNode struct {
 	eventType UIEventType
 }
 
-func NewEventNode(baseNode BaseNode, eventType UIEventType, callback func(UIEvent)) Node {
+func NewEventNode(baseNode Node, eventType UIEventType, callback func(UIEvent)) Node {
+	if baseNode == nil {
+		return nil
+	}
+	// Convert the Node to BaseNode
+	base, ok := baseNode.(*BaseNode)
+	if !ok {
+		// If we can't convert, create an error node
+		errorNode := NewBaseNodeWithProps("error", map[string]interface{}{
+			"background": Red,
+			"color":      White,
+			"padding":    EdgeInsets{10, 10, 10, 10},
+			"width":      400,
+			"height":     100,
+		})
+		if errorText, ok := errorNode.(*TextNode); ok {
+			errorText.text = "Invalid node type for EventNode"
+		}
+		return errorNode
+	}
 	eventNode := EventNode{
-		BaseNode:  baseNode,
+		BaseNode:  *base,
 		callback:  callback,
 		eventType: eventType,
 	}
@@ -831,11 +636,13 @@ func (n *ImageNode) Paint(ctx RenderContext) {
 	ctx.DrawBackground(n.finalBounds, n.styles, n.finalOpacity)
 
 	// Draw borders if needed
-	if n.styles.Border.CanDisplay() {
-		ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
+	if border, ok := n.styles.Get("border"); ok {
+		if borderStyle, ok := border.(BorderStyle); ok && borderStyle.CanDisplay() {
+			ctx.DrawBorders(n.finalBounds, n.styles, n.finalOpacity)
+		}
 	}
 
-	// Then draw the text
+	// Then draw the image
 	ctx.DrawTexture(n.sourceURL, n.finalBounds, n.styles, n.finalOpacity)
 }
 
@@ -1033,40 +840,7 @@ func debugLog(format string, args ...interface{}) {
 	fmt.Printf("[DEBUG] "+format+"\n", args...)
 }
 
-// Debug style changes
-func debugStyleChange(nodeType string, state string, props map[string]StyleSource) {
-	debugLog("Style change for %s (state: %s):", nodeType, state)
-	for prop, source := range props {
-		debugLog("  - %s: %v", prop, source)
-	}
-}
-
-// Debug state changes
-func debugStateChange(nodeType string, state string, value bool) {
-	debugLog("State change for %s: %s = %v", nodeType, state, value)
-}
-
-// Debug event handling
-func debugEventHandling(nodeType string, eventType UIEventType) {
-	debugLog("Event handling for %s: %s", nodeType, eventType)
-}
-
-// Add a method to dump node state for debugging
-func (n *BaseNode) DumpState() {
-	debugLog("Node State Dump:")
-	debugLog("  Type: %s", n.nodeType)
-	debugLog("  ID: %s", n.id)
-	debugLog("  States:")
-	debugLog("    Hovered: %v", n.state.IsHovered)
-	debugLog("    Active: %v", n.state.IsActive)
-	debugLog("    Focused: %v", n.state.IsFocused)
-	debugLog("    Disabled: %v", n.state.IsDisabled)
-	debugLog("  Styles:")
-	debugLog("    Scale: %v", n.styles.Scale)
-	debugLog("    Opacity: %v", n.styles.Opacity)
-	debugLog("    Background: %v", n.styles.Background)
-	debugLog("  Bounds:")
-	debugLog("    Position: (%v,%v)", n.finalBounds.Position.X, n.finalBounds.Position.Y)
-	debugLog("    Size: (%v,%v)", n.finalBounds.Size.Width, n.finalBounds.Size.Height)
-	debugLog("  Children: %d", len(n.children))
+func (n *BaseNode) MeasurePreferred(ctx RenderContext) Size {
+	// Default implementation returns zero size
+	return Size{Width: 0, Height: 0}
 }

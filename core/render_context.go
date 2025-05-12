@@ -1,14 +1,26 @@
 package core
 
 import (
+	"math"
+	"os"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"github.com/noahdw/goui/node"
 )
 
 // RaylibRenderContext implements the RenderContext interface using Raylib
 type RaylibRenderContext struct {
-	clipRect   node.Rect
-	textureMap map[string]rl.Texture2D
+	clipRect    node.Rect
+	textureMap  map[string]rl.Texture2D
+	opacity     float64
+	fillColor   node.Color
+	strokeColor node.Color
+	lineWidth   float64
+	fontSize    float64
+	transform   struct {
+		scaleX float64
+		scaleY float64
+	}
 }
 
 // NewRaylibRenderContext creates a new render context using Raylib
@@ -21,105 +33,225 @@ func NewRaylibRenderContext() *RaylibRenderContext {
 				Height: float64(rl.GetScreenHeight()),
 			},
 		},
-		textureMap: make(map[string]rl.Texture2D),
+		textureMap:  make(map[string]rl.Texture2D),
+		opacity:     1.0,
+		fillColor:   node.White,
+		strokeColor: node.Black,
+		lineWidth:   1.0,
+		fontSize:    16.0,
+		transform: struct {
+			scaleX float64
+			scaleY float64
+		}{
+			scaleX: 1.0,
+			scaleY: 1.0,
+		},
 	}
 }
 
 // Clear clears the screen with a background color
 func (r *RaylibRenderContext) Clear() {
-	//rl.ClearBackground(rl.RayWhite)
+	rl.ClearBackground(rl.RayWhite)
 }
 
-// DrawBackground draws anode.Rectangle with the specified color
+// Save saves the current rendering state
+func (r *RaylibRenderContext) Save() {
+	// In a real implementation, we would save the current state
+	// For now, we just track opacity and transform
+	r.opacity = 1.0
+	r.transform.scaleX = 1.0
+	r.transform.scaleY = 1.0
+}
+
+// Restore restores the previously saved rendering state
+func (r *RaylibRenderContext) Restore() {
+	// In a real implementation, we would restore the saved state
+	// For now, we just reset opacity and transform
+	r.opacity = 1.0
+	r.transform.scaleX = 1.0
+	r.transform.scaleY = 1.0
+}
+
+// SetOpacity sets the current opacity
+func (r *RaylibRenderContext) SetOpacity(opacity float64) {
+	r.opacity = opacity
+}
+
+// SetFillColor sets the current fill color
+func (r *RaylibRenderContext) SetFillColor(color node.Color) {
+	r.fillColor = color
+}
+
+// SetStrokeColor sets the current stroke color
+func (r *RaylibRenderContext) SetStrokeColor(color node.Color) {
+	r.strokeColor = color
+}
+
+// SetLineWidth sets the current line width
+func (r *RaylibRenderContext) SetLineWidth(width float64) {
+	r.lineWidth = width
+}
+
+// SetFontSize sets the current font size
+func (r *RaylibRenderContext) SetFontSize(size float64) {
+	r.fontSize = size
+}
+
+// Scale sets the current scale transform
+func (r *RaylibRenderContext) Scale(x, y float64) {
+	r.transform.scaleX *= x
+	r.transform.scaleY *= y
+}
+
+// StrokeLine draws a line from start to end
+func (r *RaylibRenderContext) StrokeLine(start, end node.Point) {
+	rl.DrawLineEx(
+		rl.Vector2{X: float32(start.X), Y: float32(start.Y)},
+		rl.Vector2{X: float32(end.X), Y: float32(end.Y)},
+		float32(r.lineWidth),
+		rl.Color{
+			R: r.strokeColor.R,
+			G: r.strokeColor.G,
+			B: r.strokeColor.B,
+			A: NormalizedFloatToUint8(r.opacity),
+		},
+	)
+}
+
+// FillRect fills a rectangle with the current fill color
+func (r *RaylibRenderContext) FillRect(rect node.Rect) {
+	rl.DrawRectangle(
+		int32(rect.Position.X),
+		int32(rect.Position.Y),
+		int32(rect.Size.Width),
+		int32(rect.Size.Height),
+		rl.Color{
+			R: r.fillColor.R,
+			G: r.fillColor.G,
+			B: r.fillColor.B,
+			A: NormalizedFloatToUint8(r.opacity),
+		},
+	)
+}
+
+// DrawBackground draws a background with the specified styles
 func (r *RaylibRenderContext) DrawBackground(bounds node.Rect, styles node.Styles, opacity float64) {
-	color := rl.Color{
-		R: styles.Background.R,
-		G: styles.Background.G,
-		B: styles.Background.B,
-		A: NormalizedFloatToUint8(opacity),
+	// Get background color
+	bgColor, ok := styles.GetColor("background")
+	if !ok {
+		return
 	}
-	if styles.BorderRadius.IsNonZero() {
-		rect := rl.Rectangle{
-			X:      float32(bounds.Position.X),
-			Y:      float32(bounds.Position.Y),
-			Width:  float32(bounds.Size.Width),
-			Height: float32(bounds.Size.Height),
-		}
-		rl.DrawRectangleRounded(rect, float32(styles.BorderRadius.Top), 50, color)
+
+	// Get border radius
+	borderRadius, ok := styles.GetEdgeInsets("borderRadius")
+	if !ok {
+		borderRadius = node.EdgeInsets{}
+	}
+
+	// Draw background with border radius
+	if borderRadius.IsNonZero() {
+		// For now, just draw a rectangle since raylib doesn't support border radius
+		// TODO: Implement proper border radius drawing
+		rl.DrawRectangle(
+			int32(bounds.Position.X),
+			int32(bounds.Position.Y),
+			int32(bounds.Size.Width),
+			int32(bounds.Size.Height),
+			rl.Color{
+				R: bgColor.R,
+				G: bgColor.G,
+				B: bgColor.B,
+				A: NormalizedFloatToUint8(opacity * r.opacity),
+			},
+		)
 	} else {
 		rl.DrawRectangle(
 			int32(bounds.Position.X),
 			int32(bounds.Position.Y),
 			int32(bounds.Size.Width),
 			int32(bounds.Size.Height),
-			color,
+			rl.Color{
+				R: bgColor.R,
+				G: bgColor.G,
+				B: bgColor.B,
+				A: NormalizedFloatToUint8(opacity * r.opacity),
+			},
 		)
 	}
 }
 
 // DrawBorders draws borders with the specified style
 func (r *RaylibRenderContext) DrawBorders(bounds node.Rect, styles node.Styles, opacity float64) {
+	// Get border style
+	border, ok := styles.Get("border")
+	if !ok {
+		return
+	}
+	borderStyle, ok := border.(node.BorderStyle)
+	if !ok {
+		return
+	}
+
 	// Top border
-	border := styles.Border
-	if border.Width.Top > 0 {
+	if borderStyle.Width.Top > 0 {
 		rl.DrawRectangle(
 			int32(bounds.Position.X),
 			int32(bounds.Position.Y),
 			int32(bounds.Size.Width),
-			int32(border.Width.Top),
+			int32(borderStyle.Width.Top),
 			rl.Color{
-				R: border.Color.R,
-				G: border.Color.G,
-				B: border.Color.B,
-				A: NormalizedFloatToUint8(opacity),
+				R: borderStyle.Color.R,
+				G: borderStyle.Color.G,
+				B: borderStyle.Color.B,
+				A: NormalizedFloatToUint8(opacity * r.opacity),
 			},
 		)
 	}
 
 	// Right border
-	if border.Width.Right > 0 {
+	if borderStyle.Width.Right > 0 {
 		rl.DrawRectangle(
-			int32(bounds.Position.X+bounds.Size.Width-border.Width.Right),
+			int32(bounds.Position.X+bounds.Size.Width-borderStyle.Width.Right),
 			int32(bounds.Position.Y),
-			int32(border.Width.Right),
+			int32(borderStyle.Width.Right),
 			int32(bounds.Size.Height),
 			rl.Color{
-				R: border.Color.R,
-				G: border.Color.G,
-				B: border.Color.B,
-				A: NormalizedFloatToUint8(opacity),
+				R: borderStyle.Color.R,
+				G: borderStyle.Color.G,
+				B: borderStyle.Color.B,
+				A: NormalizedFloatToUint8(opacity * r.opacity),
 			},
 		)
 	}
 
 	// Bottom border
-	if border.Width.Bottom > 0 {
+	if borderStyle.Width.Bottom > 0 {
 		rl.DrawRectangle(
 			int32(bounds.Position.X),
-			int32(bounds.Position.Y+bounds.Size.Height-border.Width.Bottom),
+			int32(bounds.Position.Y+bounds.Size.Height-borderStyle.Width.Bottom),
 			int32(bounds.Size.Width),
-			int32(border.Width.Bottom),
+			int32(borderStyle.Width.Bottom),
 			rl.Color{
-				R: border.Color.R,
-				G: border.Color.G,
-				B: border.Color.B,
-				A: NormalizedFloatToUint8(opacity),
+				R: borderStyle.Color.R,
+				G: borderStyle.Color.G,
+				B: borderStyle.Color.B,
+				A: NormalizedFloatToUint8(opacity * r.opacity),
 			},
 		)
 	}
 
 	// Left border
-	if border.Width.Left > 0 {
+	if borderStyle.Width.Left > 0 {
 		rl.DrawRectangle(
 			int32(bounds.Position.X),
 			int32(bounds.Position.Y),
-			int32(border.Width.Left),
+			int32(borderStyle.Width.Left),
 			int32(bounds.Size.Height),
 			rl.Color{
-				R: border.Color.R,
-				G: border.Color.G,
-				B: border.Color.B,
-				A: NormalizedFloatToUint8(opacity),
+				R: borderStyle.Color.R,
+				G: borderStyle.Color.G,
+				B: borderStyle.Color.B,
+				A: NormalizedFloatToUint8(opacity * r.opacity),
 			},
 		)
 	}
@@ -127,33 +259,36 @@ func (r *RaylibRenderContext) DrawBorders(bounds node.Rect, styles node.Styles, 
 
 // DrawText draws text with the specified styles
 func (r *RaylibRenderContext) DrawText(text string, bounds node.Rect, styles node.Styles, opacity float64) {
-	fontSize := int32(styles.FontSize.Value)
+	fontSize, _ := styles.GetFloat("fontSize")
+	padding, _ := styles.GetEdgeInsets("padding")
+	textAlign, _ := styles.GetString("textAlign")
+	alignItems, _ := styles.GetString("alignItems")
+	textColor, _ := styles.GetColor("color")
 
-	// Calculate text dimensions for alignment
-	textWidth := rl.MeasureText(text, fontSize)
-	textHeight := float64(fontSize) * 1.2 // Use line height for better vertical centering
+	textWidth := rl.MeasureText(text, int32(fontSize))
+	textHeight := fontSize * 1.2 // Use line height for better vertical centering
 
 	// Calculate position based on alignment
 	var x, y float64
 
 	// Horizontal alignment
-	switch styles.TextAlign {
+	switch textAlign {
 	case "center":
 		x = bounds.Position.X + (bounds.Size.Width-float64(textWidth))/2
 	case "right":
-		x = bounds.Position.X + bounds.Size.Width - float64(textWidth)
+		x = bounds.Position.X + bounds.Size.Width - float64(textWidth) - padding.Right
 	default: // "left" or any other value
-		x = bounds.Position.X
+		x = bounds.Position.X + padding.Left
 	}
 
 	// Vertical alignment
-	switch styles.AlignItems {
+	switch alignItems {
 	case "center":
 		y = bounds.Position.Y + (bounds.Size.Height-textHeight)/2
 	case "bottom":
-		y = bounds.Position.Y + bounds.Size.Height - textHeight
+		y = bounds.Position.Y + bounds.Size.Height - textHeight - padding.Bottom
 	default: // "top" or any other value
-		y = bounds.Position.Y
+		y = bounds.Position.Y + padding.Top
 	}
 
 	// Draw the text
@@ -161,41 +296,59 @@ func (r *RaylibRenderContext) DrawText(text string, bounds node.Rect, styles nod
 		text,
 		int32(x),
 		int32(y),
-		fontSize,
+		int32(fontSize),
 		rl.Color{
-			R: styles.Color.R,
-			G: styles.Color.G,
-			B: styles.Color.B,
-			A: NormalizedFloatToUint8(opacity),
+			R: textColor.R,
+			G: textColor.G,
+			B: textColor.B,
+			A: NormalizedFloatToUint8(opacity * r.opacity),
 		},
 	)
 }
 
-func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds node.Rect, styles node.Styles, opacity float64) {
-	texture := r.LoadTexture(sourceURL)
-	color := rl.White
-	color.A = NormalizedFloatToUint8(opacity)
-	rl.DrawTexture(texture, int32(bounds.Position.X), int32(bounds.Position.Y), color)
-}
-
+// LoadTexture loads a texture from a URL
 func (r *RaylibRenderContext) LoadTexture(sourceURL string) rl.Texture2D {
 	texture, has := r.textureMap[sourceURL]
 	if !has {
+		// Check if the file exists
+		if _, err := os.Stat(sourceURL); os.IsNotExist(err) {
+			// Return empty texture if file doesn't exist
+			return rl.Texture2D{}
+		}
+
 		texture = rl.LoadTexture(sourceURL)
-		r.textureMap[sourceURL] = texture
+		if texture.ID != 0 {
+			r.textureMap[sourceURL] = texture
+		}
 	}
 	return texture
 }
 
-// ClipRect returns the current clippingnode.Rectangle
+// UnloadTexture unloads a texture from memory
+func (r *RaylibRenderContext) UnloadTexture(sourceURL string) {
+	if texture, has := r.textureMap[sourceURL]; has {
+		rl.UnloadTexture(texture)
+		delete(r.textureMap, sourceURL)
+	}
+}
+
+// UnloadAllTextures unloads all textures from memory
+func (r *RaylibRenderContext) UnloadAllTextures() {
+	for _, texture := range r.textureMap {
+		rl.UnloadTexture(texture)
+	}
+	r.textureMap = make(map[string]rl.Texture2D)
+}
+
+// ClipRect returns the current clipping rectangle
 func (r *RaylibRenderContext) ClipRect() node.Rect {
 	return r.clipRect
 }
 
-// SetClipRect sets the current clippingnode.Rectangle
+// SetClipRect sets the current clipping rectangle
 func (r *RaylibRenderContext) SetClipRect(rect node.Rect) {
 	r.clipRect = rect
-	// Note: Raylib doesn't directly support clippingnode.Rectangles
+	// Note: Raylib doesn't directly support clipping rectangles
 	// You would need to implement scissoring using OpenGL if needed
 }
 
@@ -215,4 +368,88 @@ func NormalizedFloatToUint8(value float64) uint8 {
 
 	// Scale to 0-255 range and convert to uint8
 	return uint8(value * 255.0)
+}
+
+// DrawTexture draws a texture with the specified styles
+func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds node.Rect, styles node.Styles, opacity float64) {
+	texture := r.LoadTexture(sourceURL)
+	if texture.ID == 0 {
+		// Skip drawing if texture failed to load
+		return
+	}
+
+	color := rl.White
+	color.A = NormalizedFloatToUint8(opacity * r.opacity)
+
+	// Get object-fit style if specified
+	objectFit, _ := styles.GetString("objectFit")
+	if objectFit == "" {
+		objectFit = "contain" // Default to contain
+	}
+
+	texWidth := float32(texture.Width)
+	texHeight := float32(texture.Height)
+	var destRect rl.Rectangle
+
+	switch objectFit {
+	case "cover":
+		// Scale to cover the entire bounds while maintaining aspect ratio
+		scale := math.Max(float64(bounds.Size.Width)/float64(texWidth), float64(bounds.Size.Height)/float64(texHeight))
+		scaledWidth := float32(float64(texWidth) * scale)
+		scaledHeight := float32(float64(texHeight) * scale)
+
+		// Center the texture
+		x := float32(bounds.Position.X) + (float32(bounds.Size.Width)-scaledWidth)/2
+		y := float32(bounds.Position.Y) + (float32(bounds.Size.Height)-scaledHeight)/2
+
+		destRect = rl.Rectangle{
+			X:      x,
+			Y:      y,
+			Width:  scaledWidth,
+			Height: scaledHeight,
+		}
+
+	case "fill":
+		// Stretch to fill the bounds exactly
+		destRect = rl.Rectangle{
+			X:      float32(bounds.Position.X),
+			Y:      float32(bounds.Position.Y),
+			Width:  float32(bounds.Size.Width),
+			Height: float32(bounds.Size.Height),
+		}
+
+	default: // "contain" or any other value
+		// Scale to fit within bounds while maintaining aspect ratio
+		scale := math.Min(float64(bounds.Size.Width)/float64(texWidth), float64(bounds.Size.Height)/float64(texHeight))
+		scaledWidth := float32(float64(texWidth) * scale)
+		scaledHeight := float32(float64(texHeight) * scale)
+
+		// Center the texture
+		x := float32(bounds.Position.X) + (float32(bounds.Size.Width)-scaledWidth)/2
+		y := float32(bounds.Position.Y) + (float32(bounds.Size.Height)-scaledHeight)/2
+
+		destRect = rl.Rectangle{
+			X:      x,
+			Y:      y,
+			Width:  scaledWidth,
+			Height: scaledHeight,
+		}
+	}
+
+	// Get object-position style if specified
+	objectPosition, _ := styles.GetString("objectPosition")
+	if objectPosition != "" {
+		// Parse object-position (e.g., "center", "top left", "50% 50%")
+		// For now, we'll just support "center" as the default
+		// TODO: Implement full object-position support
+	}
+
+	rl.DrawTexturePro(
+		texture,
+		rl.Rectangle{X: 0, Y: 0, Width: texWidth, Height: texHeight},
+		destRect,
+		rl.Vector2{X: 0, Y: 0},
+		0,
+		color,
+	)
 }

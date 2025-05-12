@@ -60,7 +60,7 @@ func (r *RenderEngine) RenderFrame() {
 	// Check if layout needs recalculation
 	if r.needsRender() {
 		// Pass 1: Resolve styles
-		r.rootNode.ResolveStyles(NewStyles(StyleProps{}))
+		r.rootNode.ResolveStyles(NewStyles(make(map[string]interface{})))
 
 		// Pass 2: Measure preferred sizes
 		r.rootNode.MeasurePreferred(r.renderContext)
