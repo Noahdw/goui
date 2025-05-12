@@ -21,11 +21,29 @@ Working features:
 ## Example
 
 ```go
+// Create a header component with text and image
+header := Rect(
+    Text("Welcome to Goui").FontSize(24).Color("white"),
+    Image("logo.png").Width(50).Height(50),
+).Background("navy").Padding(20).FlexDirection("row").JustifyContent("space-between")
+
+// Create a content section with nested components
+content := Rect(
+    Rect(
+        Text("Left Panel").Color("white"),
+        Image("icon1.png").Width(32).Height(32),
+    ).Background("green").Padding(20).Width("30%"),
+    Rect(
+        Text("Main Content").Color("black"),
+        Text("A simple example showing text, images, and nested components").FontSize(14),
+    ).Background("white").Padding(20).Width("70%"),
+).Background("lightgray").Padding(10).FlexDirection("row").Height(300)
+
+// Combine components into the root layout
 root := Rect(
-    Rect().Background("green").Padding(50).Margin(20).Width(100).Height("33%"),
-    Rect().Background("blue").Padding(50).Margin(20).Width(100).Height("200"),
-    Rect().Background("red").Padding(50).Margin(20).Width("20%").Height("200"),
-).Background("black").Padding(50).Margin(20).Width(1000).Height(1000).FlexDirection("row")
+    header,
+    content,
+).Background("black").Padding(20).Width(800).Height(600).FlexDirection("column")
 
 app := core.NewApplication("My App", 800, 600)
 app.SetRoot(root)
