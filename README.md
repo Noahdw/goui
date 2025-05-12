@@ -4,19 +4,36 @@ A UI framework for Go that lets you build graphical interfaces using a declarati
 
 ## What it does
 
-- Declarative UI components with a simple API
-- Layout system with flexbox-like properties
-- Basic styling (colors, padding, margins)
-- Component-based architecture
+Goui is a declarative UI framework for Go that provides:
+
+- **Component System**
+
+  - Built-in components (Text, Button, Rect, Image, Layout)
+  - Component composition and nesting
+  - Declarative component creation
+
+- **Layout & Styling**
+
+  - Flexbox-based layout system
+  - Responsive layouts with percentage-based sizing
+  - Comprehensive styling (colors, padding, margins, borders, shadows)
+  - Text rendering with font styling
+  - Image support
+
+- **Interactive Features**
+  - Event handling (mouse, keyboard, focus)
+  - State management (hover, active, focus, disabled)
+  - Component state transitions
 
 ## Status
 
-Working features:
+The framework is currently in active development. The core features are implemented and working:
 
-- Core rendering engine
-- Basic components (images, text, rects)
-- Layout system
-- Basic styling
+- Core rendering engine and application lifecycle
+- All basic components and layout system
+- Complete styling system
+- Event system and state management
+- Component composition and responsive layouts
 
 ## Example
 
@@ -65,11 +82,9 @@ app.Run()
 
 ## Planned
 
-- More components (Text, Button, Input)
-- Better styling system
-- Event handling
+- More advanced components (Input, Select, Checkbox, etc.)
+- More layout options (Grid, Table)
 - Animations
-- More layout options
 - Documentation
 - WYSIWYG editor (end game)
 
