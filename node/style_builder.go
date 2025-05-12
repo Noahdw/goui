@@ -3,6 +3,8 @@ package node
 import (
 	"strconv"
 	"strings"
+
+	"github.com/noahdw/goui/node/style"
 )
 
 // Style builder methods for Node interface
@@ -52,59 +54,113 @@ type StyleBuilder interface {
 
 // Implementation of style builder methods for BaseNode
 func (n *BaseNode) Width(value interface{}) Node {
-	n.styles.Set("width", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("width", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("width", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if v == "auto" {
+			n.styles.Set("width", style.StyleValue{Type: style.AUTO, Value: 0, Source: style.Explicit})
+		} else if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("width", style.StyleValue{Type: style.PERCENTAGE, Value: pct, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("width", value)
+	}
 	return n
 }
 
 func (n *BaseNode) Height(value interface{}) Node {
-	n.styles.Set("height", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("height", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("height", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if v == "auto" {
+			n.styles.Set("height", style.StyleValue{Type: style.AUTO, Value: 0, Source: style.Explicit})
+		} else if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("height", style.StyleValue{Type: style.PERCENTAGE, Value: pct, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("height", value)
+	}
 	return n
 }
 
 func (n *BaseNode) MinWidth(value interface{}) Node {
-	n.styles.Set("minWidth", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("minWidth", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("minWidth", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	default:
+		n.styles.Set("minWidth", value)
+	}
 	return n
 }
 
 func (n *BaseNode) MaxWidth(value interface{}) Node {
-	n.styles.Set("maxWidth", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("maxWidth", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("maxWidth", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	default:
+		n.styles.Set("maxWidth", value)
+	}
 	return n
 }
 
 func (n *BaseNode) MinHeight(value interface{}) Node {
-	n.styles.Set("minHeight", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("minHeight", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("minHeight", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	default:
+		n.styles.Set("minHeight", value)
+	}
 	return n
 }
 
 func (n *BaseNode) MaxHeight(value interface{}) Node {
-	n.styles.Set("maxHeight", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("maxHeight", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("maxHeight", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	default:
+		n.styles.Set("maxHeight", value)
+	}
 	return n
 }
 
 func (n *BaseNode) Margin(value interface{}) Node {
 	switch v := value.(type) {
 	case float64:
-		// Single number applies to all sides
-		n.styles.Set("margin", EdgeInsets{Top: v, Right: v, Bottom: v, Left: v})
+		n.styles.Set("margin", style.EdgeInsets{Top: v, Right: v, Bottom: v, Left: v})
 	case int:
-		// Single number applies to all sides
-		n.styles.Set("margin", EdgeInsets{Top: float64(v), Right: float64(v), Bottom: float64(v), Left: float64(v)})
+		n.styles.Set("margin", style.EdgeInsets{Top: float64(v), Right: float64(v), Bottom: float64(v), Left: float64(v)})
 	case []float64:
-		// Array of [top, right, bottom, left]
 		if len(v) == 4 {
-			n.styles.Set("margin", EdgeInsets{Top: v[0], Right: v[1], Bottom: v[2], Left: v[3]})
+			n.styles.Set("margin", style.EdgeInsets{Top: v[0], Right: v[1], Bottom: v[2], Left: v[3]})
 		}
 	case []int:
-		// Array of [top, right, bottom, left]
 		if len(v) == 4 {
-			n.styles.Set("margin", EdgeInsets{
+			n.styles.Set("margin", style.EdgeInsets{
 				Top:    float64(v[0]),
 				Right:  float64(v[1]),
 				Bottom: float64(v[2]),
 				Left:   float64(v[3]),
 			})
 		}
-	case EdgeInsets:
+	case style.EdgeInsets:
 		n.styles.Set("margin", v)
 	default:
 		n.styles.Set("margin", value)
@@ -115,27 +171,23 @@ func (n *BaseNode) Margin(value interface{}) Node {
 func (n *BaseNode) Padding(value interface{}) Node {
 	switch v := value.(type) {
 	case float64:
-		// Single number applies to all sides
-		n.styles.Set("padding", EdgeInsets{Top: v, Right: v, Bottom: v, Left: v})
+		n.styles.Set("padding", style.EdgeInsets{Top: v, Right: v, Bottom: v, Left: v})
 	case int:
-		// Single number applies to all sides
-		n.styles.Set("padding", EdgeInsets{Top: float64(v), Right: float64(v), Bottom: float64(v), Left: float64(v)})
+		n.styles.Set("padding", style.EdgeInsets{Top: float64(v), Right: float64(v), Bottom: float64(v), Left: float64(v)})
 	case []float64:
-		// Array of [top, right, bottom, left]
 		if len(v) == 4 {
-			n.styles.Set("padding", EdgeInsets{Top: v[0], Right: v[1], Bottom: v[2], Left: v[3]})
+			n.styles.Set("padding", style.EdgeInsets{Top: v[0], Right: v[1], Bottom: v[2], Left: v[3]})
 		}
 	case []int:
-		// Array of [top, right, bottom, left]
 		if len(v) == 4 {
-			n.styles.Set("padding", EdgeInsets{
+			n.styles.Set("padding", style.EdgeInsets{
 				Top:    float64(v[0]),
 				Right:  float64(v[1]),
 				Bottom: float64(v[2]),
 				Left:   float64(v[3]),
 			})
 		}
-	case EdgeInsets:
+	case style.EdgeInsets:
 		n.styles.Set("padding", v)
 	default:
 		n.styles.Set("padding", value)
@@ -149,22 +201,74 @@ func (n *BaseNode) Position(value string) Node {
 }
 
 func (n *BaseNode) Top(value interface{}) Node {
-	n.styles.Set("top", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("top", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("top", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("top", style.StyleValue{Type: style.PERCENTAGE, Value: pct, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("top", value)
+	}
 	return n
 }
 
 func (n *BaseNode) Right(value interface{}) Node {
-	n.styles.Set("right", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("right", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("right", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("right", style.StyleValue{Type: style.PERCENTAGE, Value: pct, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("right", value)
+	}
 	return n
 }
 
 func (n *BaseNode) Bottom(value interface{}) Node {
-	n.styles.Set("bottom", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("bottom", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("bottom", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("bottom", style.StyleValue{Type: style.PERCENTAGE, Value: pct, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("bottom", value)
+	}
 	return n
 }
 
 func (n *BaseNode) Left(value interface{}) Node {
-	n.styles.Set("left", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("left", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("left", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("left", style.StyleValue{Type: style.PERCENTAGE, Value: pct, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("left", value)
+	}
 	return n
 }
 
@@ -199,17 +303,60 @@ func (n *BaseNode) FontFamily(value string) Node {
 }
 
 func (n *BaseNode) FontSize(value interface{}) Node {
-	n.styles.Set("fontSize", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("fontSize", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("fontSize", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "em") {
+			if em, err := strconv.ParseFloat(v[:len(v)-2], 64); err == nil {
+				n.styles.Set("fontSize", style.StyleValue{Type: style.EM, Value: em, Source: style.Explicit})
+			}
+		} else if strings.HasSuffix(v, "rem") {
+			if rem, err := strconv.ParseFloat(v[:len(v)-3], 64); err == nil {
+				n.styles.Set("fontSize", style.StyleValue{Type: style.REM, Value: rem, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("fontSize", value)
+	}
 	return n
 }
 
 func (n *BaseNode) FontWeight(value interface{}) Node {
-	n.styles.Set("fontWeight", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("fontWeight", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("fontWeight", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if v == "bold" {
+			n.styles.Set("fontWeight", style.StyleValue{Type: style.PIXEL, Value: 700.0, Source: style.Explicit})
+		} else if v == "normal" {
+			n.styles.Set("fontWeight", style.StyleValue{Type: style.PIXEL, Value: 400.0, Source: style.Explicit})
+		}
+	default:
+		n.styles.Set("fontWeight", value)
+	}
 	return n
 }
 
 func (n *BaseNode) LineHeight(value interface{}) Node {
-	n.styles.Set("lineHeight", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("lineHeight", style.StyleValue{Type: style.EM, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("lineHeight", style.StyleValue{Type: style.EM, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "em") {
+			if em, err := strconv.ParseFloat(v[:len(v)-2], 64); err == nil {
+				n.styles.Set("lineHeight", style.StyleValue{Type: style.EM, Value: em, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("lineHeight", value)
+	}
 	return n
 }
 
@@ -220,14 +367,13 @@ func (n *BaseNode) TextAlign(value string) Node {
 
 func (n *BaseNode) Color(value interface{}) Node {
 	switch v := value.(type) {
-	case Color:
+	case style.Color:
 		n.styles.Set("color", v)
 	case string:
-		// Handle color names and hex strings
 		if color, ok := parseColorString(v); ok {
 			n.styles.Set("color", color)
 		} else {
-			n.styles.Set("color", v) // Pass through as string, let the style system handle it
+			n.styles.Set("color", v)
 		}
 	default:
 		n.styles.Set("color", value)
@@ -237,14 +383,13 @@ func (n *BaseNode) Color(value interface{}) Node {
 
 func (n *BaseNode) Background(value interface{}) Node {
 	switch v := value.(type) {
-	case Color:
+	case style.Color:
 		n.styles.Set("background", v)
 	case string:
-		// Handle color names and hex strings
 		if color, ok := parseColorString(v); ok {
 			n.styles.Set("background", color)
 		} else {
-			n.styles.Set("background", v) // Pass through as string, let the style system handle it
+			n.styles.Set("background", v)
 		}
 	default:
 		n.styles.Set("background", value)
@@ -254,15 +399,14 @@ func (n *BaseNode) Background(value interface{}) Node {
 
 func (n *BaseNode) Border(value interface{}) Node {
 	switch v := value.(type) {
-	case BorderStyle:
+	case style.BorderStyle:
 		n.styles.Set("border", v)
 	case []interface{}:
-		// Handle [width, style, color] array
 		if len(v) == 3 {
-			width, _ := v[0].(EdgeInsets)
-			style, _ := v[1].(string)
-			color, _ := v[2].(Color)
-			n.styles.Set("border", BorderStyle{Width: width, Style: style, Color: color})
+			width, _ := v[0].(style.EdgeInsets)
+			styleStr, _ := v[1].(string)
+			color, _ := v[2].(style.Color)
+			n.styles.Set("border", style.BorderStyle{Width: width, Style: styleStr, Color: color})
 		}
 	default:
 		n.styles.Set("border", value)
@@ -273,27 +417,23 @@ func (n *BaseNode) Border(value interface{}) Node {
 func (n *BaseNode) BorderRadius(value interface{}) Node {
 	switch v := value.(type) {
 	case float64:
-		// Single number applies to all corners
-		n.styles.Set("borderRadius", EdgeInsets{Top: v, Right: v, Bottom: v, Left: v})
+		n.styles.Set("borderRadius", style.EdgeInsets{Top: v, Right: v, Bottom: v, Left: v})
 	case int:
-		// Single number applies to all corners
-		n.styles.Set("borderRadius", EdgeInsets{Top: float64(v), Right: float64(v), Bottom: float64(v), Left: float64(v)})
+		n.styles.Set("borderRadius", style.EdgeInsets{Top: float64(v), Right: float64(v), Bottom: float64(v), Left: float64(v)})
 	case []float64:
-		// Array of [top, right, bottom, left]
 		if len(v) == 4 {
-			n.styles.Set("borderRadius", EdgeInsets{Top: v[0], Right: v[1], Bottom: v[2], Left: v[3]})
+			n.styles.Set("borderRadius", style.EdgeInsets{Top: v[0], Right: v[1], Bottom: v[2], Left: v[3]})
 		}
 	case []int:
-		// Array of [top, right, bottom, left]
 		if len(v) == 4 {
-			n.styles.Set("borderRadius", EdgeInsets{
+			n.styles.Set("borderRadius", style.EdgeInsets{
 				Top:    float64(v[0]),
 				Right:  float64(v[1]),
 				Bottom: float64(v[2]),
 				Left:   float64(v[3]),
 			})
 		}
-	case EdgeInsets:
+	case style.EdgeInsets:
 		n.styles.Set("borderRadius", v)
 	default:
 		n.styles.Set("borderRadius", value)
@@ -303,17 +443,16 @@ func (n *BaseNode) BorderRadius(value interface{}) Node {
 
 func (n *BaseNode) Shadow(value interface{}) Node {
 	switch v := value.(type) {
-	case ShadowStyle:
+	case style.ShadowStyle:
 		n.styles.Set("shadow", v)
 	case []interface{}:
-		// Handle [offsetX, offsetY, blurRadius, spreadRadius, color] array
 		if len(v) == 5 {
 			offsetX, _ := v[0].(float64)
 			offsetY, _ := v[1].(float64)
 			blurRadius, _ := v[2].(float64)
 			spreadRadius, _ := v[3].(float64)
-			color, _ := v[4].(Color)
-			n.styles.Set("shadow", ShadowStyle{
+			color, _ := v[4].(style.Color)
+			n.styles.Set("shadow", style.ShadowStyle{
 				OffsetX:      offsetX,
 				OffsetY:      offsetY,
 				BlurRadius:   blurRadius,
@@ -328,12 +467,38 @@ func (n *BaseNode) Shadow(value interface{}) Node {
 }
 
 func (n *BaseNode) Opacity(value interface{}) Node {
-	n.styles.Set("opacity", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("opacity", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("opacity", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("opacity", style.StyleValue{Type: style.PERCENTAGE, Value: pct / 100.0, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("opacity", value)
+	}
 	return n
 }
 
 func (n *BaseNode) Scale(value interface{}) Node {
-	n.styles.Set("scale", value)
+	switch v := value.(type) {
+	case float64:
+		n.styles.Set("scale", style.StyleValue{Type: style.PIXEL, Value: v, Source: style.Explicit})
+	case int:
+		n.styles.Set("scale", style.StyleValue{Type: style.PIXEL, Value: float64(v), Source: style.Explicit})
+	case string:
+		if strings.HasSuffix(v, "%") {
+			if pct, err := strconv.ParseFloat(v[:len(v)-1], 64); err == nil {
+				n.styles.Set("scale", style.StyleValue{Type: style.PERCENTAGE, Value: pct / 100.0, Source: style.Explicit})
+			}
+		}
+	default:
+		n.styles.Set("scale", value)
+	}
 	return n
 }
 
@@ -358,7 +523,7 @@ var colorNames = map[string]string{
 }
 
 // Helper function to parse color strings (hex, color names, etc.)
-func parseColorString(s string) (Color, bool) {
+func parseColorString(s string) (style.Color, bool) {
 	// Convert to lowercase for case-insensitive matching
 	s = strings.ToLower(strings.TrimSpace(s))
 
@@ -377,11 +542,11 @@ func parseColorString(s string) (Color, bool) {
 		return parseRGBFunction(s)
 	}
 
-	return Color{}, false
+	return style.Color{}, false
 }
 
 // parseHexColor parses a hex color string (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
-func parseHexColor(hex string) (Color, bool) {
+func parseHexColor(hex string) (style.Color, bool) {
 	hex = strings.TrimPrefix(hex, "#")
 
 	var r, g, b, a uint8
@@ -407,10 +572,10 @@ func parseHexColor(hex string) (Color, bool) {
 		b = parseHexByte(hex[4:6])
 		a = parseHexByte(hex[6:8])
 	default:
-		return Color{}, false
+		return style.Color{}, false
 	}
 
-	return Color{R: r, G: g, B: b, A: a}, true
+	return style.Color{R: r, G: g, B: b, A: a}, true
 }
 
 // parseHexByte converts a hex byte string to a uint8
@@ -420,7 +585,7 @@ func parseHexByte(hex string) uint8 {
 }
 
 // parseRGBFunction parses rgb() and rgba() function strings
-func parseRGBFunction(s string) (Color, bool) {
+func parseRGBFunction(s string) (style.Color, bool) {
 	// Remove rgb( or rgba( and the closing )
 	s = strings.TrimPrefix(s, "rgb(")
 	s = strings.TrimPrefix(s, "rgba(")
@@ -437,7 +602,7 @@ func parseRGBFunction(s string) (Color, bool) {
 
 	// Parse RGB values
 	if len(parts) < 3 {
-		return Color{}, false
+		return style.Color{}, false
 	}
 
 	// Parse R
@@ -467,7 +632,7 @@ func parseRGBFunction(s string) (Color, bool) {
 		a = uint8(parseNumber(parts[3]) * 255)
 	}
 
-	return Color{R: r, G: g, B: b, A: a}, true
+	return style.Color{R: r, G: g, B: b, A: a}, true
 }
 
 // parsePercentage converts a percentage string to a float64

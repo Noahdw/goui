@@ -4,6 +4,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	. "github.com/noahdw/goui/node"
+	"github.com/noahdw/goui/node/style"
 )
 
 // RenderEngine handles the rendering process
@@ -60,7 +61,7 @@ func (r *RenderEngine) RenderFrame() {
 	// Check if layout needs recalculation
 	if r.needsRender() {
 		// Pass 1: Resolve styles
-		r.rootNode.ResolveStyles(NewStyles(make(map[string]interface{})))
+		r.rootNode.ResolveStyles(style.NewStyles(make(map[string]interface{})))
 
 		// Pass 2: Measure preferred sizes
 		r.rootNode.MeasurePreferred(r.renderContext)
@@ -75,8 +76,8 @@ func (r *RenderEngine) RenderFrame() {
 		finalSize := r.rootNode.Layout(r.renderContext, viewport)
 
 		// Pass 4: Position elements
-		bounds := Rect{
-			Position: Point{X: 0, Y: 0},
+		bounds := style.Rect{
+			Position: style.Point{X: 0, Y: 0},
 			Size:     finalSize,
 		}
 		r.rootNode.ArrangeChildren(r.renderContext, bounds)
@@ -94,12 +95,12 @@ func (r *RenderEngine) RenderFrame() {
 	r.lastMouseX = mouseX
 	r.lastMouseY = mouseY
 
-	cursor := Rect{
-		Position: Point{
+	cursor := style.Rect{
+		Position: style.Point{
 			X: mouseX,
 			Y: mouseY,
 		},
-		Size: Size{Width: 1, Height: 1}, // Make cursor a 1x1 point
+		Size: style.Size{Width: 1, Height: 1}, // Make cursor a 1x1 point
 	}
 
 	var foundObj = r.getObjUnderCursor(r.rootNode, cursor)
@@ -221,7 +222,7 @@ func (r *RenderEngine) needsRender() bool {
 	return r.needsLayout
 }
 
-func (r *RenderEngine) getObjUnderCursor(node Node, cursor Rect) Node {
+func (r *RenderEngine) getObjUnderCursor(node Node, cursor style.Rect) Node {
 	nodebr := node.GetFinalBounds()
 	if !nodebr.Intersects(cursor) {
 		return nil

@@ -5,16 +5,16 @@ import (
 	"os"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
-	"github.com/noahdw/goui/node"
+	"github.com/noahdw/goui/node/style"
 )
 
 // RaylibRenderContext implements the RenderContext interface using Raylib
 type RaylibRenderContext struct {
-	clipRect    node.Rect
+	clipRect    style.Rect
 	textureMap  map[string]rl.Texture2D
 	opacity     float64
-	fillColor   node.Color
-	strokeColor node.Color
+	fillColor   style.Color
+	strokeColor style.Color
 	lineWidth   float64
 	fontSize    float64
 	transform   struct {
@@ -26,17 +26,17 @@ type RaylibRenderContext struct {
 // NewRaylibRenderContext creates a new render context using Raylib
 func NewRaylibRenderContext() *RaylibRenderContext {
 	return &RaylibRenderContext{
-		clipRect: node.Rect{
-			Position: node.Point{X: 0, Y: 0},
-			Size: node.Size{
+		clipRect: style.Rect{
+			Position: style.Point{X: 0, Y: 0},
+			Size: style.Size{
 				Width:  float64(rl.GetScreenWidth()),
 				Height: float64(rl.GetScreenHeight()),
 			},
 		},
 		textureMap:  make(map[string]rl.Texture2D),
 		opacity:     1.0,
-		fillColor:   node.White,
-		strokeColor: node.Black,
+		fillColor:   style.White,
+		strokeColor: style.Black,
 		lineWidth:   1.0,
 		fontSize:    16.0,
 		transform: struct {
@@ -78,12 +78,12 @@ func (r *RaylibRenderContext) SetOpacity(opacity float64) {
 }
 
 // SetFillColor sets the current fill color
-func (r *RaylibRenderContext) SetFillColor(color node.Color) {
+func (r *RaylibRenderContext) SetFillColor(color style.Color) {
 	r.fillColor = color
 }
 
 // SetStrokeColor sets the current stroke color
-func (r *RaylibRenderContext) SetStrokeColor(color node.Color) {
+func (r *RaylibRenderContext) SetStrokeColor(color style.Color) {
 	r.strokeColor = color
 }
 
@@ -104,7 +104,7 @@ func (r *RaylibRenderContext) Scale(x, y float64) {
 }
 
 // StrokeLine draws a line from start to end
-func (r *RaylibRenderContext) StrokeLine(start, end node.Point) {
+func (r *RaylibRenderContext) StrokeLine(start, end style.Point) {
 	rl.DrawLineEx(
 		rl.Vector2{X: float32(start.X), Y: float32(start.Y)},
 		rl.Vector2{X: float32(end.X), Y: float32(end.Y)},
@@ -119,7 +119,7 @@ func (r *RaylibRenderContext) StrokeLine(start, end node.Point) {
 }
 
 // FillRect fills a rectangle with the current fill color
-func (r *RaylibRenderContext) FillRect(rect node.Rect) {
+func (r *RaylibRenderContext) FillRect(rect style.Rect) {
 	rl.DrawRectangle(
 		int32(rect.Position.X),
 		int32(rect.Position.Y),
@@ -135,7 +135,7 @@ func (r *RaylibRenderContext) FillRect(rect node.Rect) {
 }
 
 // DrawBackground draws a background with the specified styles
-func (r *RaylibRenderContext) DrawBackground(bounds node.Rect, styles node.Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawBackground(bounds style.Rect, styles style.Styles, opacity float64) {
 	// Get background color
 	bgColor, ok := styles.GetColor("background")
 	if !ok {
@@ -145,7 +145,7 @@ func (r *RaylibRenderContext) DrawBackground(bounds node.Rect, styles node.Style
 	// Get border radius
 	borderRadius, ok := styles.GetEdgeInsets("borderRadius")
 	if !ok {
-		borderRadius = node.EdgeInsets{}
+		borderRadius = style.EdgeInsets{}
 	}
 
 	// Draw background with border radius
@@ -181,13 +181,13 @@ func (r *RaylibRenderContext) DrawBackground(bounds node.Rect, styles node.Style
 }
 
 // DrawBorders draws borders with the specified style
-func (r *RaylibRenderContext) DrawBorders(bounds node.Rect, styles node.Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawBorders(bounds style.Rect, styles style.Styles, opacity float64) {
 	// Get border style
 	border, ok := styles.Get("border")
 	if !ok {
 		return
 	}
-	borderStyle, ok := border.(node.BorderStyle)
+	borderStyle, ok := border.(style.BorderStyle)
 	if !ok {
 		return
 	}
@@ -258,7 +258,7 @@ func (r *RaylibRenderContext) DrawBorders(bounds node.Rect, styles node.Styles, 
 }
 
 // DrawText draws text with the specified styles
-func (r *RaylibRenderContext) DrawText(text string, bounds node.Rect, styles node.Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawText(text string, bounds style.Rect, styles style.Styles, opacity float64) {
 	fontSize, _ := styles.GetFloat("fontSize")
 	padding, _ := styles.GetEdgeInsets("padding")
 	textAlign, _ := styles.GetString("textAlign")
@@ -341,12 +341,12 @@ func (r *RaylibRenderContext) UnloadAllTextures() {
 }
 
 // ClipRect returns the current clipping rectangle
-func (r *RaylibRenderContext) ClipRect() node.Rect {
+func (r *RaylibRenderContext) ClipRect() style.Rect {
 	return r.clipRect
 }
 
 // SetClipRect sets the current clipping rectangle
-func (r *RaylibRenderContext) SetClipRect(rect node.Rect) {
+func (r *RaylibRenderContext) SetClipRect(rect style.Rect) {
 	r.clipRect = rect
 	// Note: Raylib doesn't directly support clipping rectangles
 	// You would need to implement scissoring using OpenGL if needed
@@ -371,7 +371,7 @@ func NormalizedFloatToUint8(value float64) uint8 {
 }
 
 // DrawTexture draws a texture with the specified styles
-func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds node.Rect, styles node.Styles, opacity float64) {
+func (r *RaylibRenderContext) DrawTexture(sourceURL string, bounds style.Rect, styles style.Styles, opacity float64) {
 	texture := r.LoadTexture(sourceURL)
 	if texture.ID == 0 {
 		// Skip drawing if texture failed to load
